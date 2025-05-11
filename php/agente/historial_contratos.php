@@ -20,7 +20,18 @@ if (isset($_GET['eliminar'])) {
     exit();
 }
 
-$query = "SELECT c.id, p.titulo AS propiedad, u.nombre_completo AS arrendatario, c.fecha_inicio, c.fecha_fin, c.monto 
+// Cambiar estado del contrato si se recibe el formulario
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_estado'])) {
+    $contrato_id = intval($_POST['contrato_id']);
+    $nuevo_estado = $_POST['nuevo_estado'];
+    $stmtEstado = $conn->prepare("UPDATE contratos SET estado = ? WHERE id = ? AND propiedad_id IN (SELECT id FROM propiedades WHERE agente_id = ?)");
+    $stmtEstado->bind_param("sii", $nuevo_estado, $contrato_id, $agente_id);
+    $stmtEstado->execute();
+    header("Location: historial_contratos.php");
+    exit();
+}
+
+$query = "SELECT c.id, p.titulo AS propiedad, u.nombre_completo AS arrendatario, c.fecha_inicio, c.fecha_fin, c.monto, c.estado 
           FROM contratos c
           JOIN propiedades p ON c.propiedad_id = p.id
           JOIN usuarios u ON c.arrendatario_id = u.id
@@ -149,6 +160,7 @@ $resultado = $stmt->get_result();
                                 <th>Fecha Inicio</th>
                                 <th>Fecha Fin</th>
                                 <th>Monto</th>
+                                <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -161,6 +173,16 @@ $resultado = $stmt->get_result();
                                     <td><?= htmlspecialchars($contrato['fecha_inicio']) ?></td>
                                     <td><?= htmlspecialchars($contrato['fecha_fin']) ?></td>
                                     <td>$<?= number_format($contrato['monto'], 2) ?></td>
+                                    <td>
+                                        <form method="post" style="display:inline;">
+                                            <input type="hidden" name="contrato_id" value="<?= $contrato['id'] ?>">
+                                            <input type="hidden" name="cambiar_estado" value="1">
+                                            <select name="nuevo_estado" class="form-select form-select-sm d-inline" style="width:auto;display:inline-block;" onchange="this.form.submit()">
+                                                <option value="Vigente" <?= $contrato['estado'] == 'Vigente' ? 'selected' : '' ?>>Vigente</option>
+                                                <option value="Cancelado" <?= $contrato['estado'] == 'Cancelado' ? 'selected' : '' ?>>Cancelado</option>
+                                            </select>
+                                        </form>
+                                    </td>
                                     <td>
                                         <a href="historial_contratos.php?eliminar=<?= $contrato['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('¿Seguro que deseas eliminar este contrato?');">Eliminar</a>
                                     </td>

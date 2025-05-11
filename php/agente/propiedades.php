@@ -17,11 +17,27 @@ while ($row = $result->fetch_assoc()) {
 
 // Lista de departamentos y ciudades (puedes ampliar según tu necesidad)
 $departamentos_ciudades = [
-    "Antioquia" => ["Medellín", "Envigado", "Bello"],
-    "Cundinamarca" => ["Bogotá", "Soacha", "Chía"],
-    "Valle del Cauca" => ["Cali", "Palmira", "Buenaventura"],
-    "Atlántico" => ["Barranquilla", "Soledad", "Malambo"],
-    // ...agrega más si lo deseas...
+    "Antioquia" => ["Medellín", "Envigado", "Bello", "Itagüí", "Rionegro"],
+    "Cundinamarca" => ["Bogotá", "Soacha", "Chía", "Zipaquirá", "Facatativá"],
+    "Valle del Cauca" => ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago"],
+    "Atlántico" => ["Barranquilla", "Soledad", "Malambo", "Puerto Colombia", "Sabanalarga"],
+    "Santander" => ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta"],
+    "Bolívar" => ["Cartagena", "Magangué", "Turbaco", "Arjona"],
+    "Nariño" => ["Pasto", "Tumaco", "Ipiales"],
+    "Caldas" => ["Manizales", "La Dorada", "Villamaría"],
+    "Risaralda" => ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
+    "Quindío" => ["Armenia", "Calarcá", "Montenegro"],
+    "Meta" => ["Villavicencio", "Acacías", "Granada"],
+    "Huila" => ["Neiva", "Pitalito", "Garzón"],
+    "Cesar" => ["Valledupar", "Aguachica", "Codazzi"],
+    "Magdalena" => ["Santa Marta", "Ciénaga", "Fundación"],
+    "Boyacá" => ["Tunja", "Duitama", "Sogamoso"],
+    "Tolima" => ["Ibagué", "Espinal", "Melgar"],
+    "Norte de Santander" => ["Cúcuta", "Ocaña", "Pamplona"],
+    "Sucre" => ["Sincelejo", "Corozal", "Sampués"],
+    "Córdoba" => ["Montería", "Lorica", "Sahagún"],
+    "La Guajira" => ["Riohacha", "Maicao", "Uribia"]
+    // ...puedes seguir agregando más...
 ];
 
 // Registrar propiedad si se envió el formulario
@@ -45,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
     $ciudad = isset($_POST['ciudad']) ? trim($_POST['ciudad']) : '';
     $agente_id = $_SESSION['id_usuario'];
     $imagenes = [];
+    $estado = 'Disponible'; // Estado por defecto
 
     // Asegurarse de que la carpeta uploads exista
     $uploadsDir = realpath(__DIR__ . '/../../uploads');
@@ -70,10 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
     $imagenesStr = implode(',', $imagenes);
 
     // Orden de columnas según la tabla:
-    // titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad
-    $stmt = $conn->prepare("INSERT INTO propiedades (titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad, estado
+    $stmt = $conn->prepare("INSERT INTO propiedades (titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad, estado) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->bind_param(
-        "ssidssssiiiiississ",
+        "ssidssssiiiisssisss",
         $titulo,           // s (titulo)
         $descripcion,      // s (descripcion)
         $propietario_id,   // i (propietario_id)
@@ -88,10 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
         $parqueadero,      // i (parqueadero)
         $zona,             // s (zona)
         $acepta_mascotas,  // i (acepta_mascotas)
-        $piso,             // i (piso)
+        $piso,             // s (piso)
         $agente_id,        // s (agente_id)
         $departamento,     // s (departamento)
-        $ciudad            // s (ciudad)
+        $ciudad,           // s (ciudad)
+        $estado            // s (estado)
     );
     if ($stmt->execute()) {
         $mensaje = "Propiedad registrada exitosamente.";
@@ -164,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_editar'])) {
     $propietario_id = intval($_POST['propietario_id']);
     $departamento = isset($_POST['departamento']) ? trim($_POST['departamento']) : '';
     $ciudad = isset($_POST['ciudad']) ? trim($_POST['ciudad']) : '';
+    $estado = isset($_POST['estado']) ? trim($_POST['estado']) : 'Disponible';
     // Recibe el orden final de imágenes desde el input oculto
     $imagenes_finales = isset($_POST['imagenes_orden']) ? explode(',', $_POST['imagenes_orden']) : [];
     $imagenes_eliminar = isset($_POST['imagenes_eliminar']) ? explode(',', $_POST['imagenes_eliminar']) : [];
@@ -195,30 +214,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_editar'])) {
     $imagenesStr = implode(',', $imagenes_finales);
 
     // UPDATE siguiendo el orden exacto de la tabla:
-    // id, agente_id, titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento, ciudad
-    $stmt = $conn->prepare("UPDATE propiedades SET agente_id=?, titulo=?, descripcion=?, propietario_id=?, precio=?, ubicacion=?, imagen=?, tipo_inmueble=?, estrato=?, antiguedad=?, banos=?, habitaciones=?, parqueadero=?, zona=?, acepta_mascotas=?, piso=?, departamento=?, ciudad=? WHERE id=? AND agente_id=?");
+    // id, agente_id, titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento, ciudad, estado
+    $stmt = $conn->prepare("UPDATE propiedades SET agente_id=?, titulo=?, descripcion=?, propietario_id=?, precio=?, ubicacion=?, imagen=?, tipo_inmueble=?, estrato=?, antiguedad=?, banos=?, habitaciones=?, parqueadero=?, zona=?, acepta_mascotas=?, piso=?, departamento=?, ciudad=?, estado=? WHERE id=? AND agente_id=?");
     $stmt->bind_param(
-        "issidssssiiiiississi",
-        $agente_id,        // i (agente_id)
-        $titulo,           // s (titulo)
-        $descripcion,      // s (descripcion)
-        $propietario_id,   // i (propietario_id)
-        $precio,           // d (precio)
-        $ubicacion,        // s (ubicacion)
-        $imagenesStr,      // s (imagen)
-        $tipo_inmueble,    // s (tipo_inmueble)
-        $estrato,          // i (estrato)
-        $antiguedad,       // i (antiguedad)
-        $banos,            // i (banos)
-        $habitaciones,     // i (habitaciones)
-        $parqueadero,      // i (parqueadero)
-        $zona,             // s (zona)
-        $acepta_mascotas,  // i (acepta_mascotas)
-        $piso,             // i (piso)
-        $departamento,     // s (departamento)
-        $ciudad,           // s (ciudad)
-        $id_prop,          // i (id)
-        $agente_id         // i (agente_id) para el WHERE
+        "issidsssiiiiisiisssii", // Esta es la cadena correcta con 20 caracteres
+        $agente_id,           
+        $titulo,              
+        $descripcion,         
+        $propietario_id,      
+        $precio,              
+        $ubicacion,           
+        $imagenesStr,         
+        $tipo_inmueble,       
+        $estrato,             
+        $antiguedad,          
+        $banos,               
+        $habitaciones,        
+        $parqueadero,         
+        $zona,                
+        $acepta_mascotas,     
+        $piso,                
+        $departamento,        
+        $ciudad,              
+        $estado,              // nuevo campo
+        $id_prop,             
+        $agente_id            
     );
     if ($stmt->execute()) {
         $mensaje = "Propiedad editada exitosamente.";
@@ -395,11 +415,27 @@ $resultado = $stmt->get_result();
     <script>
     // Departamentos y ciudades (debe coincidir con el array PHP)
     const departamentosCiudades = {
-        "Antioquia": ["Medellín", "Envigado", "Bello"],
-        "Cundinamarca": ["Bogotá", "Soacha", "Chía"],
-        "Valle del Cauca": ["Cali", "Palmira", "Buenaventura"],
-        "Atlántico": ["Barranquilla", "Soledad", "Malambo"]
-        // ...agrega más si lo deseas...
+        "Antioquia": ["Medellín", "Envigado", "Bello", "Itagüí", "Rionegro"],
+        "Cundinamarca": ["Bogotá", "Soacha", "Chía", "Zipaquirá", "Facatativá"],
+        "Valle del Cauca": ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago"],
+        "Atlántico": ["Barranquilla", "Soledad", "Malambo", "Puerto Colombia", "Sabanalarga"],
+        "Santander": ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta"],
+        "Bolívar": ["Cartagena", "Magangué", "Turbaco", "Arjona"],
+        "Nariño": ["Pasto", "Tumaco", "Ipiales"],
+        "Caldas": ["Manizales", "La Dorada", "Villamaría"],
+        "Risaralda": ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
+        "Quindío": ["Armenia", "Calarcá", "Montenegro"],
+        "Meta": ["Villavicencio", "Acacías", "Granada"],
+        "Huila": ["Neiva", "Pitalito", "Garzón"],
+        "Cesar": ["Valledupar", "Aguachica", "Codazzi"],
+        "Magdalena": ["Santa Marta", "Ciénaga", "Fundación"],
+        "Boyacá": ["Tunja", "Duitama", "Sogamoso"],
+        "Tolima": ["Ibagué", "Espinal", "Melgar"],
+        "Norte de Santander": ["Cúcuta", "Ocaña", "Pamplona"],
+        "Sucre": ["Sincelejo", "Corozal", "Sampués"],
+        "Córdoba": ["Montería", "Lorica", "Sahagún"],
+        "La Guajira": ["Riohacha", "Maicao", "Uribia"]
+        // ...puedes seguir agregando más...
     };
 
     function actualizarCiudades(selectDeptoId, selectCiudadId, ciudadSeleccionada = "") {
@@ -450,6 +486,21 @@ $resultado = $stmt->get_result();
                     $descCorta = mb_strlen($propiedad['descripcion']) > 80
                         ? mb_substr($propiedad['descripcion'], 0, 80) . '...'
                         : $propiedad['descripcion'];
+                    // Asegura que el campo estado exista
+                    $estado_prop = isset($propiedad['estado']) ? $propiedad['estado'] : 'Disponible';
+                    // Consulta rápida para saber si tiene contrato activo
+                    $contratoActivo = false;
+                    // La consulta debe ser sobre la tabla contratos, NO sobre propiedades
+                    $stmtContrato = $conn->prepare("SELECT COUNT(*) as total FROM contratos WHERE propiedad_id = ? AND estado = 'Activo'");
+                    $stmtContrato->bind_param("i", $propiedad['id']);
+                    $stmtContrato->execute();
+                    $resContrato = $stmtContrato->get_result();
+                    if ($rowC = $resContrato->fetch_assoc()) {
+                        if ($rowC['total'] > 0) {
+                            $contratoActivo = true;
+                            $estado_prop = 'Arrendando';
+                        }
+                    }
                 ?>
                 <div class="col-md-4">
                     <div class="property-card card">
@@ -457,8 +508,12 @@ $resultado = $stmt->get_result();
                         <div class="card-body">
                             <h5 class="card-title"><?= htmlspecialchars($propiedad['titulo']) ?></h5>
                             <p class="card-text"><?= htmlspecialchars($descCorta) ?></p>
+                            <p class="mb-1"><strong>Habitaciones:</strong> <?= htmlspecialchars($propiedad['habitaciones']) ?></p>
+                            <p class="mb-1"><strong>Baños:</strong> <?= htmlspecialchars($propiedad['banos']) ?></p>
+                            <p class="mb-1"><strong>Estrato:</strong> <?= htmlspecialchars($propiedad['estrato']) ?></p>
                             <p class="mb-1"><strong>Precio:</strong> $<?= number_format($propiedad['precio'], 2) ?></p>
                             <p class="mb-1"><strong>Propietario:</strong> <?= htmlspecialchars($propiedad['propietario_nombre'] ?? 'No asignado') ?></p>
+                            <p class="mb-1"><strong>Estado:</strong> <?= htmlspecialchars($estado_prop) ?></p>
                             <div class="property-actions mt-2">
                                 <button type="button" class="btn btn-warning btn-sm"
                                     data-bs-toggle="modal"
@@ -480,7 +535,8 @@ $resultado = $stmt->get_result();
                                         '<?= htmlspecialchars(addslashes($propiedad['acepta_mascotas'] ?? '')) ?>',
                                         '<?= htmlspecialchars(addslashes($propiedad['piso'] ?? '')) ?>',
                                         '<?= htmlspecialchars(addslashes($propiedad['departamento'] ?? '')) ?>',
-                                        '<?= htmlspecialchars(addslashes($propiedad['ciudad'] ?? '')) ?>'
+                                        '<?= htmlspecialchars(addslashes($propiedad['ciudad'] ?? '')) ?>',
+                                        '<?= htmlspecialchars(addslashes($estado_prop)) ?>'
                                     )"
                                 >Editar</button>
                                 <a href="propiedades.php?eliminar=<?= $propiedad['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('¿Seguro que deseas eliminar esta propiedad?');">Eliminar</a>
@@ -689,6 +745,15 @@ $resultado = $stmt->get_result();
                                 <option value="">Seleccione ciudad</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="edit_estado" class="form-label">Estado <span class="text-danger">*</span></label>
+                            <select name="estado" id="edit_estado" class="form-select" required>
+                                <option value="Disponible">Disponible</option>
+                                <option value="Arrendando">Arrendando</option>
+                                <option value="Remodelación">Remodelación</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -749,7 +814,7 @@ $resultado = $stmt->get_result();
     let imagenesEditar = [];
     let imagenesEliminar = [];
 
-    function editarPropiedad(id, titulo, descripcion, precio, propietario_id, imagenesStr, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento = '', ciudad = '') {
+    function editarPropiedad(id, titulo, descripcion, precio, propietario_id, imagenesStr, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento = '', ciudad = '', estado = 'Disponible') {
         document.getElementById('edit_id_propiedad').value = id;
         document.getElementById('edit_titulo').value = titulo;
         document.getElementById('edit_descripcion').value = descripcion;
@@ -766,6 +831,16 @@ $resultado = $stmt->get_result();
         document.getElementById('edit_acepta_mascotas').checked = acepta_mascotas == 1;
         document.getElementById('edit_departamento').value = departamento;
         actualizarCiudades('edit_departamento', 'edit_ciudad', ciudad);
+        // Estado
+        if (document.getElementById('edit_estado')) {
+            document.getElementById('edit_estado').value = estado;
+            // Si está arrendando, bloquear edición
+            if (estado === 'Arrendando') {
+                document.getElementById('edit_estado').setAttribute('disabled', 'disabled');
+            } else {
+                document.getElementById('edit_estado').removeAttribute('disabled');
+            }
+        }
 
         imagenesEditar = imagenesStr ? imagenesStr.split(',').filter(Boolean) : [];
         imagenesEliminar = [];

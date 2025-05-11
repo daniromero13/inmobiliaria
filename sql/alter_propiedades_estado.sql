@@ -1,0 +1,2 @@
+ALTER TABLE propiedades
+ADD COLUMN estado VARCHAR(30) NOT NULL DEFAULT 'Disponible';
