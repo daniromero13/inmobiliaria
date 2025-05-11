@@ -34,7 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
     $banos = intval($_POST['banos']);
     $habitaciones = intval($_POST['habitaciones']);
     $parqueadero = isset($_POST['parqueadero']) ? 1 : 0;
-    $zona = trim($_POST['zona']);
+    $ubicacion = isset($_POST['ubicacion']) ? trim($_POST['ubicacion']) : ''; // Nuevo para ubicacion
+    $zona = isset($_POST['zona']) ? trim($_POST['zona']) : ''; // Nuevo para zona
     $acepta_mascotas = isset($_POST['acepta_mascotas']) ? 1 : 0;
     $piso = isset($_POST['piso']) && $_POST['piso'] !== '' ? intval($_POST['piso']) : null;
     $descripcion = trim($_POST['descripcion']);
@@ -68,14 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
 
     $imagenesStr = implode(',', $imagenes);
 
-    // 17 columnas, 17 variables, 17 tipos (orden según la base de datos)
-    $stmt = $conn->prepare("INSERT INTO propiedades (titulo, descripcion, propietario_id, precio, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, ubicacion, acepta_mascotas, piso, agente_id, departamento, ciudad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    // Orden de columnas según la tabla:
+    // titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad
+    $stmt = $conn->prepare("INSERT INTO propiedades (titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, agente_id, departamento, ciudad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->bind_param(
-        "ssidsiiiisiisiiss",
+        "ssidssssiiiiississ",
         $titulo,           // s (titulo)
         $descripcion,      // s (descripcion)
         $propietario_id,   // i (propietario_id)
         $precio,           // d (precio)
+        $ubicacion,        // s (ubicacion)
         $imagenesStr,      // s (imagen)
         $tipo_inmueble,    // s (tipo_inmueble)
         $estrato,          // i (estrato)
@@ -83,10 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_registro'])) {
         $banos,            // i (banos)
         $habitaciones,     // i (habitaciones)
         $parqueadero,      // i (parqueadero)
-        $zona,             // s (ubicacion)
+        $zona,             // s (zona)
         $acepta_mascotas,  // i (acepta_mascotas)
         $piso,             // i (piso)
-        $agente_id,        // i (agente_id)
+        $agente_id,        // s (agente_id)
         $departamento,     // s (departamento)
         $ciudad            // s (ciudad)
     );
@@ -152,8 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_editar'])) {
     $banos = intval($_POST['banos']);
     $habitaciones = intval($_POST['habitaciones']);
     $parqueadero = isset($_POST['parqueadero']) ? 1 : 0;
-    // --- CAMBIO: Usar 'ubicacion' en vez de 'zona' ---
-    $zona = isset($_POST['zona']) ? strval($_POST['zona']) : '';
+    $ubicacion = isset($_POST['ubicacion']) ? trim($_POST['ubicacion']) : '';
+    $zona = isset($_POST['zona']) ? trim($_POST['zona']) : '';
     $acepta_mascotas = isset($_POST['acepta_mascotas']) ? 1 : 0;
     $piso = isset($_POST['piso']) && $_POST['piso'] !== '' ? intval($_POST['piso']) : null;
     $descripcion = trim($_POST['descripcion']);
@@ -191,14 +194,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_editar'])) {
     $imagenes_finales = array_values(array_filter($imagenes_finales));
     $imagenesStr = implode(',', $imagenes_finales);
 
-    // --- CAMBIO: Actualiza la consulta para usar 'ubicacion' en vez de 'zona' ---
-    $stmt = $conn->prepare("UPDATE propiedades SET titulo=?, descripcion=?, propietario_id=?, precio=?, imagen=?, tipo_inmueble=?, estrato=?, antiguedad=?, banos=?, habitaciones=?, parqueadero=?, ubicacion=?, acepta_mascotas=?, piso=?, departamento=?, ciudad=? WHERE id=? AND agente_id=?");
+    // UPDATE siguiendo el orden exacto de la tabla:
+    // id, agente_id, titulo, descripcion, propietario_id, precio, ubicacion, imagen, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento, ciudad
+    $stmt = $conn->prepare("UPDATE propiedades SET agente_id=?, titulo=?, descripcion=?, propietario_id=?, precio=?, ubicacion=?, imagen=?, tipo_inmueble=?, estrato=?, antiguedad=?, banos=?, habitaciones=?, parqueadero=?, zona=?, acepta_mascotas=?, piso=?, departamento=?, ciudad=? WHERE id=? AND agente_id=?");
     $stmt->bind_param(
-        "ssidssiiiisiissiisii",
+        "issidssssiiiiississi",
+        $agente_id,        // i (agente_id)
         $titulo,           // s (titulo)
         $descripcion,      // s (descripcion)
         $propietario_id,   // i (propietario_id)
         $precio,           // d (precio)
+        $ubicacion,        // s (ubicacion)
         $imagenesStr,      // s (imagen)
         $tipo_inmueble,    // s (tipo_inmueble)
         $estrato,          // i (estrato)
@@ -206,13 +212,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['modal_editar'])) {
         $banos,            // i (banos)
         $habitaciones,     // i (habitaciones)
         $parqueadero,      // i (parqueadero)
-        $zona,             // s (ubicacion)
+        $zona,             // s (zona)
         $acepta_mascotas,  // i (acepta_mascotas)
         $piso,             // i (piso)
         $departamento,     // s (departamento)
         $ciudad,           // s (ciudad)
         $id_prop,          // i (id)
-        $agente_id         // i (agente_id)
+        $agente_id         // i (agente_id) para el WHERE
     );
     if ($stmt->execute()) {
         $mensaje = "Propiedad editada exitosamente.";
