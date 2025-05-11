@@ -18,8 +18,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             // Ajusta el nombre del campo de contraseña según tu base de datos
             if (password_verify($contrasena, $usuario['contrasena']) || $usuario['contrasena'] === hash('sha256', $contrasena)) {
-                $_SESSION['id_usuario'] = $usuario['id_usuario'];
-                $_SESSION['nombre'] = $usuario['nombre'];
+                $_SESSION['id_usuario'] = $usuario['id'];
+                $_SESSION['nombre_completo'] = $usuario['nombre_completo'];
                 $_SESSION['rol_id'] = $usuario['rol_id'];
 
                 // Redireccionar según el rol (ajusta las rutas)

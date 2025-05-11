@@ -20,7 +20,7 @@ if (!isset($_SESSION['rol_id']) || $_SESSION['rol_id'] != 3) {
     <div class="card shadow">
         <div class="card-body text-center">
             <h1 class="card-title">Bienvenido Arrendatario</h1>
-            <p class="card-text">Hola, <?php echo htmlspecialchars($_SESSION['nombre']); ?>.</p>
+            <p class="card-text">Hola, <?php echo htmlspecialchars($_SESSION['nombre_completo']); ?>.</p>
             <a href="../../php/logout.php" class="btn btn-danger">Cerrar sesión</a>
         </div>
     </div>
