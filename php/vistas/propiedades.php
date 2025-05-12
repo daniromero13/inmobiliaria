@@ -31,11 +31,46 @@ $resultado = $conn->query($query);
         .card:hover {
             transform: translateY(-5px);
         }
+        .propiedad-arrendando {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .propiedad-arrendando .card-body {
+            pointer-events: auto;
+        }
+        .propiedad-arrendando .btn-ver-detalles {
+            pointer-events: auto;
+            opacity: 1;
+        }
+        .propiedad-arrendando:hover {
+            /* No efecto hover */
+            transform: none;
+        }
+        .property-img.arrendando-img {
+            filter: grayscale(100%);
+        }
         .property-img {
             width: 100%;
             height: 180px;
             object-fit: cover;
             background: #e5e7eb;
+        }
+        .property-details-list {
+            font-size: 0.97rem;
+            margin-bottom: 0.5rem;
+            padding-left: 0;
+            list-style: none;
+        }
+        .property-details-list li {
+            display: inline-block;
+            margin-right: 12px;
+        }
+        .propiedad-arriendo {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .property-img.arriendo-img {
+            filter: grayscale(100%);
         }
     </style>
 </head>
@@ -63,20 +98,67 @@ $resultado = $conn->query($query);
         <h2 class="text-center mb-4">Propiedades Disponibles</h2>
         <div class="row">
             <?php while ($propiedad = $resultado->fetch_assoc()): ?>
+                <?php
+                    $estado = strtolower(trim($propiedad['estado']));
+                    $enArrendando = ($estado === 'arrendando');
+                    $cardClass = $enArrendando ? 'card mb-4 propiedad-arrendando' : 'card mb-4';
+                    $imgClass = 'property-img' . ($enArrendando ? ' arrendando-img' : '');
+                    $btnDisabled = ''; // Siempre se puede ver detalles
+                ?>
                 <div class="col-md-4">
-                    <div class="card mb-4">
+                    <div class="<?= $cardClass ?>">
                         <?php
                         $imgPath = (!empty($propiedad['imagen']) && file_exists(__DIR__ . '/../../uploads/' . $propiedad['imagen']))
                             ? '../../uploads/' . $propiedad['imagen']
                             : 'https://via.placeholder.com/400x180?text=Sin+Imagen';
                         ?>
-                        <img src="<?= $imgPath ?>" class="card-img-top property-img" alt="Propiedad">
+                        <img src="<?= $imgPath ?>" class="card-img-top <?= $imgClass ?>" alt="Propiedad">
                         <div class="card-body">
                             <h5 class="card-title"><?= htmlspecialchars($propiedad['titulo']) ?></h5>
+                            <?php
+                                $badgeClass = 'bg-secondary';
+                                if ($estado === 'arrendando') {
+                                    $badgeClass = 'bg-danger';
+                                } elseif ($estado === 'disponible') {
+                                    $badgeClass = 'bg-success';
+                                } elseif ($estado === 'remodelación' || $estado === 'remodelacion') {
+                                    $badgeClass = 'bg-warning text-dark';
+                                }
+                            ?>
+                            <span class="badge <?= $badgeClass ?> mb-2"><?= htmlspecialchars($propiedad['estado']) ?></span>
+                            <ul class="property-details-list">
+                                <li><strong>Precio:</strong> $<?= number_format($propiedad['precio'], 2) ?></li>
+                                <?php if (!empty($propiedad['ubicacion'])): ?>
+                                    <li><strong>Dirección:</strong> <?= htmlspecialchars($propiedad['ubicacion']) ?></li>
+                                <?php endif; ?>
+                            </ul>
+                            <ul class="property-details-list">
+                                <?php if (!empty($propiedad['habitaciones'])): ?>
+                                    <li><?= intval($propiedad['habitaciones']) ?> hab.</li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['banos'])): ?>
+                                    <li><?= intval($propiedad['banos']) ?> baños</li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['metros_cuadrados'])): ?>
+                                    <li><?= intval($propiedad['metros_cuadrados']) ?> m²</li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['estrato'])): ?>
+                                    <li>Estrato <?= htmlspecialchars($propiedad['estrato']) ?></li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['tipo'])): ?>
+                                    <li><?= htmlspecialchars($propiedad['tipo']) ?></li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['ciudad'])): ?>
+                                    <li><?= htmlspecialchars($propiedad['ciudad']) ?></li>
+                                <?php endif; ?>
+                                <?php if (!empty($propiedad['barrio'])): ?>
+                                    <li><?= htmlspecialchars($propiedad['barrio']) ?></li>
+                                <?php endif; ?>
+                            </ul>
+                            <p class="mb-1"><strong>Agente:</strong> <?= htmlspecialchars($propiedad['agente_nombre'] ?? 'No asignado') ?></p>
+                            <p class="mb-2"><strong>Propietario:</strong> <?= htmlspecialchars($propiedad['propietario_nombre'] ?? 'No asignado') ?></p>
                             <p class="card-text"><?= htmlspecialchars($propiedad['descripcion']) ?></p>
-                            <p class="card-text mb-1"><strong>Precio:</strong> $<?= number_format($propiedad['precio'], 2) ?></p>
-                            <p class="card-text mb-1"><strong>Agente:</strong> <?= htmlspecialchars($propiedad['agente_nombre'] ?? 'No asignado') ?></p>
-                            <button class="btn btn-primary" 
+                            <button class="btn btn-primary btn-ver-detalles" 
                                 data-bs-toggle="modal"
                                 data-bs-target="#modalDetallePropiedad"
                                 onclick="mostrarDetalle(
@@ -85,7 +167,16 @@ $resultado = $conn->query($query);
                                     '<?= $imgPath ?>',
                                     '<?= htmlspecialchars(addslashes($propiedad['agente_nombre'] ?? 'No asignado')) ?>',
                                     '<?= htmlspecialchars(addslashes($propiedad['propietario_nombre'] ?? 'No asignado')) ?>',
-                                    '<?= number_format($propiedad['precio'], 2) ?>'
+                                    '<?= number_format($propiedad['precio'], 2) ?>',
+                                    '<?= htmlspecialchars(addslashes($propiedad['ubicacion'] ?? '')) ?>',
+                                    '<?= intval($propiedad['habitaciones'] ?? 0) ?>',
+                                    '<?= intval($propiedad['banos'] ?? 0) ?>',
+                                    '<?= intval($propiedad['metros_cuadrados'] ?? 0) ?>',
+                                    '<?= htmlspecialchars(addslashes($propiedad['estrato'] ?? '')) ?>',
+                                    '<?= htmlspecialchars(addslashes($propiedad['tipo'] ?? '')) ?>',
+                                    '<?= htmlspecialchars(addslashes($propiedad['ciudad'] ?? '')) ?>',
+                                    '<?= htmlspecialchars(addslashes($propiedad['barrio'] ?? '')) ?>',
+                                    '<?= htmlspecialchars($propiedad['estado']) ?>'
                                 )"
                             >Ver Detalles</button>
                         </div>
@@ -111,7 +202,18 @@ $resultado = $conn->query($query);
                 <div class="col-md-6">
                     <h4 id="detalle_titulo"></h4>
                     <p id="detalle_descripcion"></p>
-                    <p><strong>Precio:</strong> $<span id="detalle_precio"></span></p>
+                    <ul class="property-details-list">
+                        <li><strong>Precio:</strong> $<span id="detalle_precio"></span></li>
+                        <li><strong>Dirección:</strong> <span id="detalle_direccion"></span></li>
+                        <li><strong>Ciudad:</strong> <span id="detalle_ciudad"></span></li>
+                        <li><strong>Estado:</strong> <span id="detalle_estado"></span></li>
+                    </ul>
+                    <ul class="property-details-list">
+                        <li><span id="detalle_habitaciones"></span> hab.</li>
+                        <li><span id="detalle_banos"></span> baños</li>
+                        <li>Estrato <span id="detalle_estrato"></span></li>
+                        <li><span id="detalle_tipo"></span></li>
+                    </ul>
                     <p><strong>Agente:</strong> <span id="detalle_agente"></span></p>
                     <p><strong>Propietario:</strong> <span id="detalle_propietario"></span></p>
                 </div>
@@ -127,13 +229,21 @@ $resultado = $conn->query($query);
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-    function mostrarDetalle(titulo, descripcion, imagen, agente, propietario, precio) {
+    function mostrarDetalle(titulo, descripcion, imagen, agente, propietario, precio, direccion, habitaciones, banos, metros, estrato, tipo, ciudad, barrio, estado) {
         document.getElementById('detalle_titulo').textContent = titulo;
         document.getElementById('detalle_descripcion').textContent = descripcion;
         document.getElementById('detalle_imagen').src = imagen;
         document.getElementById('detalle_agente').textContent = agente;
         document.getElementById('detalle_propietario').textContent = propietario;
         document.getElementById('detalle_precio').textContent = precio;
+        document.getElementById('detalle_direccion').textContent = direccion;
+        document.getElementById('detalle_habitaciones').textContent = habitaciones;
+        document.getElementById('detalle_banos').textContent = banos;
+        document.getElementById('detalle_estrato').textContent = estrato;
+        document.getElementById('detalle_tipo').textContent = tipo;
+        document.getElementById('detalle_ciudad').textContent = ciudad;
+        document.getElementById('detalle_barrio').textContent = barrio;
+        document.getElementById('detalle_estado').textContent = estado;
     }
     </script>
 </body>
