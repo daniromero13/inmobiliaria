@@ -3,12 +3,65 @@
 session_start();
 include '../../config/db.php'; // Conexión a la base de datos
 
-// Consulta para obtener todas las propiedades con propietario y agente
+// Opciones de tipo de inmueble
+$tipos_inmueble = [
+    "Casa",
+    "Apartamento",
+    "Apartaestudio",
+    "Habitación"
+];
+
+// Opciones de departamentos y ciudades (igual que en agente)
+$departamentos_ciudades = [
+    "Antioquia" => ["Medellín", "Envigado", "Bello", "Itagüí", "Rionegro"],
+    "Cundinamarca" => ["Bogotá", "Soacha", "Chía", "Zipaquirá", "Facatativá"],
+    "Valle del Cauca" => ["Cali", "Palmira", "Buenaventura", "Tuluá", "Cartago"],
+    "Atlántico" => ["Barranquilla", "Soledad", "Malambo", "Puerto Colombia", "Sabanalarga"],
+    "Santander" => ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta"],
+    "Bolívar" => ["Cartagena", "Magangué", "Turbaco", "Arjona"],
+    "Nariño" => ["Pasto", "Tumaco", "Ipiales"],
+    "Caldas" => ["Manizales", "La Dorada", "Villamaría"],
+    "Risaralda" => ["Pereira", "Dosquebradas", "Santa Rosa de Cabal"],
+    "Quindío" => ["Armenia", "Calarcá", "Montenegro"],
+    "Meta" => ["Villavicencio", "Acacías", "Granada"],
+    "Huila" => ["Neiva", "Pitalito", "Garzón"],
+    "Cesar" => ["Valledupar", "Aguachica", "Codazzi"],
+    "Magdalena" => ["Santa Marta", "Ciénaga", "Fundación"],
+    "Boyacá" => ["Tunja", "Duitama", "Sogamoso"],
+    "Tolima" => ["Ibagué", "Espinal", "Melgar"],
+    "Norte de Santander" => ["Cúcuta", "Ocaña", "Pamplona"],
+    "Sucre" => ["Sincelejo", "Corozal", "Sampués"],
+    "Córdoba" => ["Montería", "Lorica", "Sahagún"],
+    "La Guajira" => ["Riohacha", "Maicao", "Uribia"]
+];
+
+// Obtener valores de filtros
+$tipo = $_GET['tipo'] ?? '';
+$habitaciones = $_GET['habitaciones'] ?? '';
+$banos = $_GET['banos'] ?? '';
+$departamento = $_GET['departamento'] ?? '';
+$ciudad = $_GET['ciudad'] ?? '';
+
+// Construir consulta con filtros
+$where = [];
+if ($tipo !== '') $where[] = "p.tipo_inmueble = '" . $conn->real_escape_string($tipo) . "'";
+if ($habitaciones !== '') $where[] = "p.habitaciones = " . intval($habitaciones);
+if ($banos !== '') $where[] = "p.banos = " . intval($banos);
+if ($departamento !== '') $where[] = "p.departamento = '" . $conn->real_escape_string($departamento) . "'";
+if ($ciudad !== '') $where[] = "p.ciudad = '" . $conn->real_escape_string($ciudad) . "'";
+
+$whereSql = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
+
 $query = "SELECT p.*, u.nombre_completo AS propietario_nombre, a.nombre_completo AS agente_nombre
           FROM propiedades p
           LEFT JOIN usuarios u ON p.propietario_id = u.id
-          LEFT JOIN usuarios a ON p.agente_id = a.id";
+          LEFT JOIN usuarios a ON p.agente_id = a.id
+          $whereSql";
 $resultado = $conn->query($query);
+
+// Opciones únicas para habitaciones y baños
+$habitaciones_opts = $conn->query("SELECT DISTINCT habitaciones FROM propiedades WHERE habitaciones IS NOT NULL AND habitaciones != '' ORDER BY habitaciones");
+$banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos IS NOT NULL AND banos != '' ORDER BY banos");
 ?>
 
 <!DOCTYPE html>
@@ -93,9 +146,105 @@ $resultado = $conn->query($query);
         </div>
     </nav>
 
-    <!-- Lista de Propiedades -->
     <div class="container mt-5">
         <h2 class="text-center mb-4">Propiedades Disponibles</h2>
+    </div>
+
+    <!-- Filtros -->
+    <div class="container mt-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label for="tipo" class="form-label">Tipo</label>
+                <select name="tipo" id="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    <?php foreach($tipos_inmueble as $tipo_op): ?>
+                        <option value="<?= htmlspecialchars($tipo_op) ?>" <?= $tipo === $tipo_op ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($tipo_op) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="habitaciones" class="form-label">Habitaciones</label>
+                <select name="habitaciones" id="habitaciones" class="form-select">
+                    <option value="">Todas</option>
+                    <?php while($row = $habitaciones_opts->fetch_assoc()): ?>
+                        <option value="<?= $row['habitaciones'] ?>" <?= $habitaciones !== '' && $habitaciones == $row['habitaciones'] ? 'selected' : '' ?>>
+                            <?= $row['habitaciones'] ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="banos" class="form-label">Baños</label>
+                <select name="banos" id="banos" class="form-select">
+                    <option value="">Todos</option>
+                    <?php while($row = $banos_opts->fetch_assoc()): ?>
+                        <option value="<?= $row['banos'] ?>" <?= $banos !== '' && $banos == $row['banos'] ? 'selected' : '' ?>>
+                            <?= $row['banos'] ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="departamento" class="form-label">Departamento</label>
+                <select name="departamento" id="departamento" class="form-select" onchange="actualizarCiudades('departamento','ciudad')">
+                    <option value="">Todos</option>
+                    <?php foreach ($departamentos_ciudades as $depto => $ciudadesArr): ?>
+                        <option value="<?= htmlspecialchars($depto) ?>" <?= $departamento === $depto ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($depto) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="ciudad" class="form-label">Ciudad</label>
+                <select name="ciudad" id="ciudad" class="form-select">
+                    <option value="">Todas</option>
+                    <?php
+                    if ($departamento && isset($departamentos_ciudades[$departamento])) {
+                        foreach ($departamentos_ciudades[$departamento] as $ciudad_op) {
+                            $selected = $ciudad === $ciudad_op ? 'selected' : '';
+                            echo '<option value="'.htmlspecialchars($ciudad_op).'" '.$selected.'>'.htmlspecialchars($ciudad_op).'</option>';
+                        }
+                    }
+                    ?>
+                </select>
+            </div>
+            <div class="col-md-12 text-end">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <a href="propiedades.php" class="btn btn-secondary">Limpiar</a>
+            </div>
+        </form>
+    </div>
+    <script>
+    // Igual que en agente: departamentos y ciudades
+    const departamentosCiudades = <?php echo json_encode($departamentos_ciudades); ?>;
+    function actualizarCiudades(selectDeptoId, selectCiudadId) {
+        const depto = document.getElementById(selectDeptoId).value;
+        const ciudadSelect = document.getElementById(selectCiudadId);
+        ciudadSelect.innerHTML = '<option value="">Todas</option>';
+        if (departamentosCiudades[depto]) {
+            departamentosCiudades[depto].forEach(function(ciudad) {
+                ciudadSelect.innerHTML += `<option value="${ciudad}">${ciudad}</option>`;
+            });
+        }
+    }
+    // Si hay un departamento seleccionado, cargar ciudades al cargar la página
+    window.addEventListener('DOMContentLoaded', function() {
+        var deptoSel = document.getElementById('departamento').value;
+        var ciudadSel = "<?= htmlspecialchars($ciudad) ?>";
+        if (deptoSel) {
+            actualizarCiudades('departamento', 'ciudad');
+            if (ciudadSel) {
+                document.getElementById('ciudad').value = ciudadSel;
+            }
+        }
+    });
+    </script>
+
+    <!-- Lista de Propiedades -->
+    <div class="container mt-5">
         <div class="row">
             <?php while ($propiedad = $resultado->fetch_assoc()): ?>
                 <?php
@@ -223,7 +372,7 @@ $resultado = $conn->query($query);
       </div>
     </div>
 
-    <footer class="text-white text-center py-4 mt-5 bg-dark">
+    <footer class="text-white text-center py-4 mt-5 bg-dark" style="width:100%;">
         <p>&copy; 2025 Sistema de Gestión de Propiedades Inmobiliarias. Todos los derechos reservados.</p>
     </footer>
 
