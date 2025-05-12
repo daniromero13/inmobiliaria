@@ -1,0 +1,2 @@
+ALTER TABLE contratos
+ADD COLUMN pdf_contrato VARCHAR(255) NULL;

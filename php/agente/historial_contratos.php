@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_estado'])) {
     exit();
 }
 
-$query = "SELECT c.id, p.titulo AS propiedad, u.nombre_completo AS arrendatario, c.fecha_inicio, c.fecha_fin, c.monto, c.estado 
+$query = "SELECT c.id, p.titulo AS propiedad, u.nombre_completo AS arrendatario, c.fecha_inicio, c.fecha_fin, c.monto, c.estado, c.pdf_contrato 
           FROM contratos c
           JOIN propiedades p ON c.propiedad_id = p.id
           JOIN usuarios u ON c.arrendatario_id = u.id
@@ -113,7 +113,7 @@ $resultado = $stmt->get_result();
             color: #174ea6;
         }
         .main-card {
-            max-width: 950px;
+            max-width: 1100px;
             margin: 0 auto 40px auto;
             border-radius: 18px;
             box-shadow: 0 6px 32px 0 rgba(60,72,88,0.12);
@@ -121,8 +121,32 @@ $resultado = $stmt->get_result();
             border: none;
             padding: 2rem 2.5rem;
         }
+        .table-responsive { margin-top: 2rem; }
+        .contratos-table-custom th, .contratos-table-custom td {
+            padding: 12px 8px !important;
+            font-size: 0.97rem;
+            border: 2px solid #e0e7ef !important;
+            background: #fff;
+        }
+        .contratos-table-custom th {
+            background: #e6f0fa !important;
+            color: #174ea6 !important;
+            font-weight: 700;
+            text-align: center;
+        }
+        .contratos-table-custom td {
+            background: #fff !important;
+            color: #222;
+            font-weight: 500;
+            vertical-align: middle !important;
+            word-break: break-word;
+            white-space: normal;
+        }
+        @media (max-width: 1200px) {
+            .main-card { max-width: 100%; padding: 1rem; }
+        }
         @media (max-width: 600px) {
-            .main-card { padding: 1rem; }
+            .main-card { padding: 0.5rem; }
             .nav-agente { flex-direction: column; gap: 8px; }
         }
     </style>
@@ -137,6 +161,7 @@ $resultado = $stmt->get_result();
         <a href="propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
         <a href="crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
         <a href="registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
+        <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="historial_contratos.php" class="active"><i class="bi bi-clock-history"></i>Historial Contratos</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
@@ -149,52 +174,112 @@ $resultado = $stmt->get_result();
                 <h2 class="mb-0 text-center flex-grow-1" style="font-size:1.7rem;">Historial de Contratos</h2>
                 <span style="width: 90px;"></span>
             </div>
-            <?php if ($resultado && $resultado->num_rows > 0): ?>
-                <div class="table-responsive">
-                    <table class="table table-bordered align-middle">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Propiedad</th>
-                                <th>Arrendatario</th>
-                                <th>Fecha Inicio</th>
-                                <th>Fecha Fin</th>
-                                <th>Monto</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php while ($contrato = $resultado->fetch_assoc()): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($contrato['id']) ?></td>
-                                    <td><?= htmlspecialchars($contrato['propiedad']) ?></td>
-                                    <td><?= htmlspecialchars($contrato['arrendatario']) ?></td>
-                                    <td><?= htmlspecialchars($contrato['fecha_inicio']) ?></td>
-                                    <td><?= htmlspecialchars($contrato['fecha_fin']) ?></td>
-                                    <td>$<?= number_format($contrato['monto'], 2) ?></td>
-                                    <td>
-                                        <form method="post" style="display:inline;">
-                                            <input type="hidden" name="contrato_id" value="<?= $contrato['id'] ?>">
-                                            <input type="hidden" name="cambiar_estado" value="1">
-                                            <select name="nuevo_estado" class="form-select form-select-sm d-inline" style="width:auto;display:inline-block;" onchange="this.form.submit()">
-                                                <option value="Vigente" <?= $contrato['estado'] == 'Vigente' ? 'selected' : '' ?>>Vigente</option>
-                                                <option value="Cancelado" <?= $contrato['estado'] == 'Cancelado' ? 'selected' : '' ?>>Cancelado</option>
-                                            </select>
-                                        </form>
-                                    </td>
-                                    <td>
-                                        <a href="historial_contratos.php?eliminar=<?= $contrato['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('¿Seguro que deseas eliminar este contrato?');">Eliminar</a>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
+            <!-- Filtros y buscador -->
+            <div class="row mb-3">
+                <div class="col-md-4 mb-2">
+                    <select id="filtroEstado" class="form-select">
+                        <option value="">Todos los estados</option>
+                        <option value="Vigente">Vigente</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
                 </div>
-            <?php else: ?>
-                <p class="text-center">No hay contratos registrados.</p>
-            <?php endif; ?>
+                <div class="col-md-4 mb-2">
+                    <input type="month" id="filtroMesContrato" class="form-control" placeholder="Filtrar por mes de inicio">
+                </div>
+                <div class="col-md-4 mb-2">
+                    <input type="text" id="buscadorContratos" class="form-control" placeholder="Buscar...">
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table id="tablaContratos" class="table table-bordered align-middle contratos-table-custom" style="max-width:1100px; margin:auto;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Propiedad</th>
+                            <th>Arrendatario</th>
+                            <th>Fecha Inicio</th>
+                            <th>Fecha Fin</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($contrato = $resultado->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($contrato['id']) ?></td>
+                                <td><?= htmlspecialchars($contrato['propiedad']) ?></td>
+                                <td><?= htmlspecialchars($contrato['arrendatario']) ?></td>
+                                <td><?= htmlspecialchars($contrato['fecha_inicio']) ?></td>
+                                <td><?= htmlspecialchars($contrato['fecha_fin']) ?></td>
+                                <td>$<?= number_format($contrato['monto'], 2) ?></td>
+                                <td>
+                                    <form method="post" style="display:inline;">
+                                        <input type="hidden" name="contrato_id" value="<?= $contrato['id'] ?>">
+                                        <input type="hidden" name="cambiar_estado" value="1">
+                                        <select name="nuevo_estado" class="form-select form-select-sm d-inline" style="width:auto;display:inline-block;" onchange="this.form.submit()">
+                                            <option value="Vigente" <?= $contrato['estado'] == 'Vigente' ? 'selected' : '' ?>>Vigente</option>
+                                            <option value="Cancelado" <?= $contrato['estado'] == 'Cancelado' ? 'selected' : '' ?>>Cancelado</option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-row gap-2">
+                                        <?php if (!empty($contrato['pdf_contrato']) && file_exists(__DIR__ . '/../../' . $contrato['pdf_contrato'])): ?>
+                                            <a href="../../<?= htmlspecialchars($contrato['pdf_contrato']) ?>" target="_blank" class="btn btn-info btn-sm" style="min-width:70px;">Ver</a>
+                                        <?php endif; ?>
+                                        <a href="historial_contratos.php?eliminar=<?= $contrato['id'] ?>" class="btn btn-danger btn-sm" style="min-width:90px;" onclick="return confirm('¿Seguro que deseas eliminar este contrato?');">Eliminar</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const filtroEstado = document.getElementById('filtroEstado');
+        const filtroMes = document.getElementById('filtroMesContrato');
+        const buscador = document.getElementById('buscadorContratos');
+        const tabla = document.getElementById('tablaContratos').getElementsByTagName('tbody')[0];
+
+        function filtrarTabla() {
+            const estado = filtroEstado.value;
+            const mes = filtroMes.value;
+            const texto = buscador.value.toLowerCase();
+
+            for (let row of tabla.rows) {
+                let mostrar = true;
+
+                // Filtro por estado (ahora busca el valor seleccionado en el select dentro de la celda)
+                if (estado) {
+                    // Busca el select dentro de la celda de estado
+                    const select = row.cells[6].querySelector('select');
+                    if (!select || select.value !== estado) {
+                        mostrar = false;
+                    }
+                }
+                // Filtro por mes de inicio
+                if (mes && !row.cells[3].textContent.startsWith(mes)) {
+                    mostrar = false;
+                }
+                // Buscador general
+                if (texto) {
+                    let rowText = row.textContent.toLowerCase();
+                    if (!rowText.includes(texto)) {
+                        mostrar = false;
+                    }
+                }
+                row.style.display = mostrar ? '' : 'none';
+            }
+        }
+
+        filtroEstado.addEventListener('change', filtrarTabla);
+        filtroMes.addEventListener('input', filtrarTabla);
+        buscador.addEventListener('input', filtrarTabla);
+    });
+    </script>
 </body>
 </html>

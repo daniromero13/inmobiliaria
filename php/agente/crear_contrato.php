@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmtCheck = $conn->prepare(
         "SELECT 1 FROM contratos 
          WHERE propiedad_id = ? 
+         AND estado = 'Vigente'
          AND (
              (fecha_inicio <= ? AND fecha_fin >= ?) OR
              (fecha_inicio <= ? AND fecha_fin >= ?) OR
@@ -57,9 +58,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         HTML;
     } else {
+        // Obtener datos de propiedad, agente y arrendatario
+        $stmtProp = $conn->prepare("SELECT * FROM propiedades WHERE id = ?");
+        $stmtProp->bind_param("i", $propiedad_id);
+        $stmtProp->execute();
+        $propiedad = $stmtProp->get_result()->fetch_assoc();
+
+        $stmtArr = $conn->prepare("SELECT * FROM usuarios WHERE id = ?");
+        $stmtArr->bind_param("i", $arrendatario_id);
+        $stmtArr->execute();
+        $arrendatario = $stmtArr->get_result()->fetch_assoc();
+
+        $stmtAgente = $conn->prepare("SELECT * FROM usuarios WHERE id = ?");
+        $stmtAgente->bind_param("i", $agente_id);
+        $stmtAgente->execute();
+        $agente = $stmtAgente->get_result()->fetch_assoc();
+
+        // Insertar contrato (sin PDF aún)
         $stmt = $conn->prepare("INSERT INTO contratos (propiedad_id, arrendatario_id, fecha_inicio, fecha_fin, monto) VALUES (?, ?, ?, ?, ?)");
         $stmt->bind_param("iissi", $propiedad_id, $arrendatario_id, $fecha_inicio, $fecha_fin, $monto);
         if ($stmt->execute()) {
+            $contrato_id = $stmt->insert_id;
+
+            // Generar PDF profesional con soporte UTF-8
+            require_once(__DIR__ . '/../../fpdf/fpdf.php');
+            $pdfDir = __DIR__ . '/../../documentos';
+            if (!is_dir($pdfDir)) {
+                mkdir($pdfDir, 0777, true);
+            }
+            $pdfPath = $pdfDir . "/contrato_{$contrato_id}.pdf";
+            $pdfRelPath = "documentos/contrato_{$contrato_id}.pdf";
+
+            $pdf = new FPDF();
+            // Usar solo fuentes estándar de FPDF para evitar errores de fuentes externas
+            $pdf->SetFont('Arial','',14);
+            $pdf->AddPage();
+
+            // Encabezado
+            $pdf->SetFillColor(37,99,235);
+            $pdf->SetTextColor(255,255,255);
+            $pdf->Cell(0,15,utf8_decode('CONTRATO DE ARRENDAMIENTO'),0,1,'C',true);
+            $pdf->Ln(2);
+
+            // Datos del contrato
+            $pdf->SetTextColor(0,0,0);
+            $pdf->SetFont('Arial','',11);
+            $pdf->SetFillColor(230,230,250);
+            $pdf->Cell(0,8,utf8_decode('Datos del Contrato'),0,1,'L',true);
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(0,7,utf8_decode("Fecha de inicio: {$fecha_inicio}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Fecha de fin: {$fecha_fin}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Monto mensual: $ {$monto}"),0,1);
+            $pdf->Ln(2);
+
+            // Datos de la propiedad
+            $pdf->SetFont('Arial','',11);
+            $pdf->SetFillColor(230,230,250);
+            $pdf->Cell(0,8,utf8_decode('Datos de la Propiedad'),0,1,'L',true);
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(0,7,utf8_decode("Título: {$propiedad['titulo']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Tipo: {$propiedad['tipo_inmueble']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Zona: {$propiedad['zona']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Departamento: {$propiedad['departamento']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Ciudad: {$propiedad['ciudad']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Estrato: {$propiedad['estrato']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Precio: $ {$propiedad['precio']}"),0,1);
+            $pdf->MultiCell(0,7,utf8_decode("Descripción: {$propiedad['descripcion']}"));
+            $pdf->Ln(2);
+
+            // Datos del agente
+            $pdf->SetFont('Arial','B',11);
+            $pdf->SetFillColor(230,230,250);
+            $pdf->Cell(0,8,utf8_decode('Datos del Agente'),0,1,'L',true);
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(0,7,utf8_decode("Nombre: {$agente['nombre_completo']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Correo: {$agente['correo']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Teléfono: {$agente['telefono']}"),0,1);
+            $pdf->Ln(2);
+
+            // Datos del arrendatario
+            $pdf->SetFont('Arial','B',11);
+            $pdf->SetFillColor(230,230,250);
+            $pdf->Cell(0,8,utf8_decode('Datos del Arrendatario'),0,1,'L',true);
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(0,7,utf8_decode("Nombre: {$arrendatario['nombre_completo']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Correo: {$arrendatario['correo']}"),0,1);
+            $pdf->Cell(0,7,utf8_decode("Teléfono: {$arrendatario['telefono']}"),0,1);
+
+            // Firmas
+            $pdf->Ln(15);
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(90,7,utf8_decode('________________________'),0,0,'C');
+            $pdf->Cell(10,7,'',0,0);
+            $pdf->Cell(90,7,utf8_decode('________________________'),0,1,'C');
+            $pdf->Cell(90,7,utf8_decode('Firma Agente'),0,0,'C');
+            $pdf->Cell(10,7,'',0,0);
+            $pdf->Cell(90,7,utf8_decode('Firma Arrendatario'),0,1,'C');
+
+            $pdf->Output('F', $pdfPath);
+
+            // Actualizar contrato con la ruta del PDF
+            $stmtUpd = $conn->prepare("UPDATE contratos SET pdf_contrato = ? WHERE id = ?");
+            $stmtUpd->bind_param("si", $pdfRelPath, $contrato_id);
+            $stmtUpd->execute();
+
+            // Redirigir inmediatamente después de crear el contrato para evitar duplicados por recarga
             header("Location: historial_contratos.php");
             exit();
         } else {
@@ -165,6 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a href="propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
         <a href="crear_contrato.php" class="active"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
         <a href="../../php/agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
+        <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="../../php/agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>

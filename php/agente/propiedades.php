@@ -461,6 +461,7 @@ $resultado = $stmt->get_result();
         <a href="propiedades.php" class="active"><i class="bi bi-house-door"></i>Mis Propiedades</a>
         <a href="crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
         <a href="../../php/agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
+        <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="../../php/agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
@@ -488,19 +489,19 @@ $resultado = $stmt->get_result();
                         : $propiedad['descripcion'];
                     // Asegura que el campo estado exista
                     $estado_prop = isset($propiedad['estado']) ? $propiedad['estado'] : 'Disponible';
-                    // Consulta rápida para saber si tiene contrato activo
-                    $contratoActivo = false;
-                    // La consulta debe ser sobre la tabla contratos, NO sobre propiedades
-                    $stmtContrato = $conn->prepare("SELECT COUNT(*) as total FROM contratos WHERE propiedad_id = ? AND estado = 'Activo'");
+                    // Consulta rápida para saber si tiene contrato vigente
+                    $contratoVigente = false;
+                    $stmtContrato = $conn->prepare("SELECT COUNT(*) as total FROM contratos WHERE propiedad_id = ? AND estado = 'Vigente'");
                     $stmtContrato->bind_param("i", $propiedad['id']);
                     $stmtContrato->execute();
                     $resContrato = $stmtContrato->get_result();
                     if ($rowC = $resContrato->fetch_assoc()) {
                         if ($rowC['total'] > 0) {
-                            $contratoActivo = true;
-                            $estado_prop = 'Arrendando';
+                            $contratoVigente = true;
                         }
                     }
+                    // Mostrar "Ocupado" si hay contrato vigente
+                    $estado_mostrar = $contratoVigente ? 'Ocupado' : htmlspecialchars($estado_prop);
                 ?>
                 <div class="col-md-4">
                     <div class="property-card card">
@@ -513,7 +514,7 @@ $resultado = $stmt->get_result();
                             <p class="mb-1"><strong>Estrato:</strong> <?= htmlspecialchars($propiedad['estrato']) ?></p>
                             <p class="mb-1"><strong>Precio:</strong> $<?= number_format($propiedad['precio'], 2) ?></p>
                             <p class="mb-1"><strong>Propietario:</strong> <?= htmlspecialchars($propiedad['propietario_nombre'] ?? 'No asignado') ?></p>
-                            <p class="mb-1"><strong>Estado:</strong> <?= htmlspecialchars($estado_prop) ?></p>
+                            <p class="mb-1"><strong>Estado:</strong> <?= $estado_mostrar ?></p>
                             <div class="property-actions mt-2">
                                 <button type="button" class="btn btn-warning btn-sm"
                                     data-bs-toggle="modal"
