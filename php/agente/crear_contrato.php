@@ -270,6 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a href="../../php/agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
         <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="../../php/agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">

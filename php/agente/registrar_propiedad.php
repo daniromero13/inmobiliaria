@@ -40,6 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="container mt-5" style="max-width: 600px;">
     <h2 class="mb-4">Registrar Nueva Propiedad</h2>
+    <nav class="nav-agente mb-4">
+        <a href="propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
+        <a href="crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
+        <a href="registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
+        <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
+        <a href="historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
+        <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
+    </nav>
     <?php if ($mensaje): ?>
         <div class="alert alert-info"><?php echo htmlspecialchars($mensaje); ?></div>
     <?php endif; ?>

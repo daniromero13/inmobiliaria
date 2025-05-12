@@ -463,6 +463,7 @@ $resultado = $stmt->get_result();
         <a href="../../php/agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
         <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="../../php/agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">
@@ -513,6 +514,8 @@ $resultado = $stmt->get_result();
                             <p class="mb-1"><strong>Baños:</strong> <?= htmlspecialchars($propiedad['banos']) ?></p>
                             <p class="mb-1"><strong>Estrato:</strong> <?= htmlspecialchars($propiedad['estrato']) ?></p>
                             <p class="mb-1"><strong>Precio:</strong> $<?= number_format($propiedad['precio'], 2) ?></p>
+                            <p class="mb-1"><strong>Dirección:</strong> <?= htmlspecialchars($propiedad['ubicacion']) ?></p>
+                            <p class="mb-1"><strong>Ciudad:</strong> <?= htmlspecialchars($propiedad['ciudad']) ?></p>
                             <p class="mb-1"><strong>Propietario:</strong> <?= htmlspecialchars($propiedad['propietario_nombre'] ?? 'No asignado') ?></p>
                             <p class="mb-1"><strong>Estado:</strong> <?= $estado_mostrar ?></p>
                             <div class="property-actions mt-2">
@@ -537,7 +540,8 @@ $resultado = $stmt->get_result();
                                         '<?= htmlspecialchars(addslashes($propiedad['piso'] ?? '')) ?>',
                                         '<?= htmlspecialchars(addslashes($propiedad['departamento'] ?? '')) ?>',
                                         '<?= htmlspecialchars(addslashes($propiedad['ciudad'] ?? '')) ?>',
-                                        '<?= htmlspecialchars(addslashes($estado_prop)) ?>'
+                                        '<?= htmlspecialchars(addslashes($estado_prop)) ?>',
+                                        '<?= htmlspecialchars(addslashes($propiedad['ubicacion'] ?? '')) ?>'
                                     )"
                                 >Editar</button>
                                 <a href="propiedades.php?eliminar=<?= $propiedad['id'] ?>" class="btn btn-danger btn-sm" onclick="return confirm('¿Seguro que deseas eliminar esta propiedad?');">Eliminar</a>
@@ -618,6 +622,10 @@ $resultado = $stmt->get_result();
                             <select name="ciudad" id="ciudad" class="form-select" required>
                                 <option value="">Seleccione ciudad</option>
                             </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="ubicacion" class="form-label">Dirección <span class="text-danger">*</span></label>
+                            <input type="text" name="ubicacion" id="ubicacion" class="form-control" required>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -755,6 +763,10 @@ $resultado = $stmt->get_result();
                                 <option value="Inactivo">Inactivo</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="edit_ubicacion" class="form-label">Dirección <span class="text-danger">*</span></label>
+                            <input type="text" name="ubicacion" id="edit_ubicacion" class="form-control" required>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="mb-3">
@@ -815,7 +827,7 @@ $resultado = $stmt->get_result();
     let imagenesEditar = [];
     let imagenesEliminar = [];
 
-    function editarPropiedad(id, titulo, descripcion, precio, propietario_id, imagenesStr, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento = '', ciudad = '', estado = 'Disponible') {
+    function editarPropiedad(id, titulo, descripcion, precio, propietario_id, imagenesStr, tipo_inmueble, estrato, antiguedad, banos, habitaciones, parqueadero, zona, acepta_mascotas, piso, departamento = '', ciudad = '', estado = 'Disponible', ubicacion = '') {
         document.getElementById('edit_id_propiedad').value = id;
         document.getElementById('edit_titulo').value = titulo;
         document.getElementById('edit_descripcion').value = descripcion;
@@ -842,6 +854,7 @@ $resultado = $stmt->get_result();
                 document.getElementById('edit_estado').removeAttribute('disabled');
             }
         }
+        document.getElementById('edit_ubicacion').value = ubicacion;
 
         imagenesEditar = imagenesStr ? imagenesStr.split(',').filter(Boolean) : [];
         imagenesEliminar = [];

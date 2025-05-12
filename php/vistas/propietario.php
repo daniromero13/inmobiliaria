@@ -140,10 +140,9 @@ $inicial = strtoupper(mb_substr($nombreCompleto, 0, 1, 'UTF-8'));
     </header>
     <nav class="nav-propietario mb-4">
         <a href="../propietario/ver_propiedades.php"><i class="bi bi-house-door"></i>Propiedades</a>
-        <a href="ver_contratos.php"><i class="bi bi-file-earmark-text"></i>Contratos</a>
-        <a href="ver_pagos.php"><i class="bi bi-cash-stack"></i>Pagos</a>
-        <a href="reportes_propietario.php"><i class="bi bi-bar-chart"></i>Reportes</a>
-        <a href="perfil_propietario.php"><i class="bi bi-person"></i>Perfil</a>
+        <a href="../propietario/ver_contratos.php"><i class="bi bi-file-earmark-text"></i>Contratos</a>
+        <a href="../propietario/ver_pagos.php"><i class="bi bi-cash-stack"></i>Pagos</a>
+        <a href="../propietario/reportes_propietario.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">

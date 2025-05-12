@@ -114,9 +114,11 @@ $inicial = strtoupper(mb_substr($nombreCompleto, 0, 1, 'UTF-8'));
     </header>
     <nav class="nav-agente mb-4">
         <a href="../agente/propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
-        <a href="../agente/crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
-        <a href="../../php/agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
-        <a href="../../php/agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="../agente/crear_contrato.php" class="active"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
+        <a href="../agente/registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
+        <a href="../agente/historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
+        <a href="../agente/historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="../agente/reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">

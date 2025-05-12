@@ -132,6 +132,29 @@ $pagos = $stmtPagos->get_result();
             .nav-agente { flex-direction: column; gap: 8px; }
         }
     </style>
+    <style>
+        .pagos-table-custom th, .pagos-table-custom td {
+            padding: 8px 6px !important; /* Menos padding */
+            font-size: 0.95rem;          /* Más compacto */
+            border: 2px solid #e0e7ef !important;
+            background: #fff;
+            vertical-align: middle !important;
+            text-align: left;
+        }
+        .pagos-table-custom th {
+            background: #e6f0fa !important;
+            color: #174ea6 !important;
+            font-weight: 700;
+            text-align: center;
+        }
+        .pagos-table-custom td {
+            background: #fff !important;
+            color: #222;
+            font-weight: 500;
+            word-break: break-word;
+            white-space: normal;
+        }
+    </style>
 </head>
 <body>
     <header class="header-agente text-center">
@@ -145,6 +168,7 @@ $pagos = $stmtPagos->get_result();
         <a href="registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
         <a href="historial_pagos.php" class="active"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">
@@ -184,17 +208,18 @@ $pagos = $stmtPagos->get_result();
                     <input type="text" id="buscadorPagos" class="form-control" placeholder="Buscar...">
                 </div>
             </div>
-            <div class="table-responsive d-flex justify-content-center">
-                <table id="tablaPagos" class="table table-bordered align-middle mb-0 pagos-table-custom" style="max-width:1100px; margin:auto;">
+            <div class="table-responsive" style="overflow-x:auto; max-width:100%;">
+                <table id="tablaPagos" class="table table-bordered align-middle mb-0 pagos-table-custom" style="min-width:900px; width:100%;">
                     <thead>
                         <tr>
                             <th class="text-center align-middle" style="width:8%;">ID Pago</th>
-                            <th class="text-center align-middle" style="width:10%;">Contrato</th>
-                            <th class="text-center align-middle" style="width:22%;">Propiedad</th>
-                            <th class="text-center align-middle" style="width:18%;">Arrendatario</th>
-                            <th class="text-center align-middle" style="width:14%;">Monto</th>
-                            <th class="text-center align-middle" style="width:18%;">Fecha del Mes Pagado</th>
-                            <th class="text-center align-middle" style="width:18%;">Fecha de Pago</th>
+                            <th class="text-start align-middle" style="width:10%;">Contrato</th>
+                            <th class="text-start align-middle" style="width:22%;">Propiedad</th>
+                            <th class="text-start align-middle" style="width:18%;">Arrendatario</th>
+                            <th class="text-start align-middle" style="width:14%;">Monto del Contrato</th>
+                            <th class="text-start align-middle" style="width:14%;">Dinero recibido</th>
+                            <th class="text-start align-middle" style="width:18%;">Fecha del Mes Pagado</th>
+                            <th class="text-start align-middle" style="width:18%;">Fecha de Pago</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -212,24 +237,54 @@ $pagos = $stmtPagos->get_result();
                             ?>
                                 <tr>
                                     <td class="text-center align-middle"><?= $pago['id'] ?></td>
-                                    <td class="text-center align-middle">#<?= $pago['contrato_id'] ?></td>
-                                    <td class="align-middle" style="white-space:normal; word-break:break-word;"><?= htmlspecialchars($pago['propiedad']) ?></td>
-                                    <td class="align-middle"><?= htmlspecialchars($pago['arrendatario']) ?></td>
-                                    <td class="text-end align-middle" style="color:#2563eb; font-weight:600; white-space:nowrap;">
+                                    <td class="text-start align-middle">#<?= $pago['contrato_id'] ?></td>
+                                    <td class="text-start align-middle" style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?= htmlspecialchars($pago['propiedad']) ?></td>
+                                    <td class="text-start align-middle" style="max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?= htmlspecialchars($pago['arrendatario']) ?></td>
+                                    <td class="text-start align-middle" style="color:#2563eb; font-weight:600;">
                                         $<?= number_format($pago['monto'], 2, '.', ',') ?>
                                     </td>
-                                    <td class="text-center align-middle"><?= htmlspecialchars($pago['fecha_pago']) ?></td>
-                                    <td class="text-center align-middle"><?= htmlspecialchars($created_at) ?></td>
+                                    <td class="text-start align-middle" style="color:#10b981; font-weight:600;">
+                                        $<?= number_format($pago['monto'] * 0.10, 2, '.', ',') ?>
+                                    </td>
+                                    <td class="text-start align-middle" style="white-space:nowrap;"><?= htmlspecialchars($pago['fecha_pago']) ?></td>
+                                    <td class="text-start align-middle" style="white-space:nowrap;"><?= htmlspecialchars($created_at) ?></td>
                                 </tr>
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" class="text-center">No hay pagos registrados.</td>
+                                <td colspan="8" class="text-center">No hay pagos registrados.</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
+            <style>
+                .pagos-table-custom th, .pagos-table-custom td {
+                    padding: 12px 10px !important;
+                    font-size: 1rem;
+                    border: 2px solid #e0e7ef !important;
+                    background: #fff;
+                    vertical-align: middle !important;
+                    text-align: left;
+                }
+                .pagos-table-custom th {
+                    background: #e6f0fa !important;
+                    color: #174ea6 !important;
+                    font-weight: 700;
+                    text-align: center;
+                    white-space: nowrap !important;
+                }
+                .pagos-table-custom td:nth-child(3),
+                .pagos-table-custom td:nth-child(4) {
+                    white-space: nowrap !important;
+                    overflow: hidden !important;
+                    text-overflow: ellipsis !important;
+                    max-width: 220px;
+                }
+                .main-card {
+                    overflow-x: auto;
+                }
+            </style>
         </div>
     </div>
     <style>
