@@ -128,7 +128,7 @@ $resultado = $stmt->get_result();
     </style>
 </head>
 <body>
-    <header class="header-agente text-center">
+    <header class="header-agente text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
         <h1>Bienvenido Agente</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
@@ -139,6 +139,7 @@ $resultado = $stmt->get_result();
         <a href="registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
         <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
         <a href="historial_contratos.php" class="active"><i class="bi bi-clock-history"></i>Historial Contratos</a>
+        <a href="reportes_agente.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">
@@ -197,6 +198,7 @@ $resultado = $stmt->get_result();
                                             <select name="nuevo_estado" class="form-select form-select-sm d-inline" style="width:auto;display:inline-block;" onchange="this.form.submit()" 
                                                 <?= ($tienePagos > 0 && !$permiteCambioAnticipado) ? 'disabled' : '' ?>>
                                                 <option value="Vigente" <?= $contrato['estado'] == 'Vigente' ? 'selected' : '' ?>>Vigente</option>
+                                                <option value="Firmado" <?= $contrato['estado'] == 'Firmado' ? 'selected' : '' ?>>Firmado</option>
                                                 <option value="Cancelado" <?= $contrato['estado'] == 'Cancelado' ? 'selected' : '' ?>>Cancelado</option>
                                                 <?php if ($permiteCambioAnticipado): ?>
                                                     <option value="Cancelación anticipada" <?= $contrato['estado'] == 'Cancelación anticipada' ? 'selected' : '' ?>>Cancelación anticipada</option>

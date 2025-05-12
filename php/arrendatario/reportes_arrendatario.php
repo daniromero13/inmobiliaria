@@ -1,111 +1,39 @@
 <?php
 session_start();
-if (!isset($_SESSION['rol_id']) || $_SESSION['rol_id'] != 4) {
+if (!isset($_SESSION['rol_id']) || $_SESSION['rol_id'] != 3) {
     header('Location: ../login.php');
     exit();
 }
-$nombreCompleto = isset($_SESSION['nombre_completo']) ? trim($_SESSION['nombre_completo']) : 'Agente';
+$nombreCompleto = isset($_SESSION['nombre_completo']) ? trim($_SESSION['nombre_completo']) : 'Arrendatario';
 $inicial = strtoupper(mb_substr($nombreCompleto, 0, 1, 'UTF-8'));
 include '../../config/db.php';
 
-$agente_id = $_SESSION['id_usuario'];
+$arrendatario_id = $_SESSION['id_usuario'];
 
-// Total propiedades asignadas
-$stmt = $conn->prepare("SELECT COUNT(*) FROM propiedades WHERE agente_id = ?");
-$stmt->bind_param("i", $agente_id);
-$stmt->execute();
-$stmt->bind_result($total_propiedades);
-$stmt->fetch();
-$stmt->close();
-
-// Total contratos gestionados
-$stmt = $conn->prepare(
-    "SELECT COUNT(*) FROM contratos c
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?"
-);
-$stmt->bind_param("i", $agente_id);
+// Total contratos
+$stmt = $conn->prepare("SELECT COUNT(*) FROM contratos WHERE arrendatario_id = ?");
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $stmt->bind_result($total_contratos);
 $stmt->fetch();
 $stmt->close();
 
-// Total pagos recibidos (monto total de pagos de contratos gestionados)
+// Total pagado
 $stmt = $conn->prepare(
-    "SELECT SUM(pagos.monto) FROM pagos
-     JOIN contratos c ON pagos.contrato_id = c.id
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?"
+    "SELECT SUM(monto) FROM pagos WHERE contrato_id IN (SELECT id FROM contratos WHERE arrendatario_id = ?)"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
-$stmt->bind_result($total_pagos);
+$stmt->bind_result($total_pagado);
 $stmt->fetch();
 $stmt->close();
-$total_pagos = $total_pagos ?: 0;
-
-// Comisión recibida (10% de cada pago)
-$stmt = $conn->prepare(
-    "SELECT pagos.monto FROM pagos
-     JOIN contratos c ON pagos.contrato_id = c.id
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?"
-);
-$stmt->bind_param("i", $agente_id);
-$stmt->execute();
-$resPagos = $stmt->get_result();
-$comision_total = 0;
-while ($row = $resPagos->fetch_assoc()) {
-    $comision_total += $row['monto'] * 0.10;
-}
-$stmt->close();
-
-// Dinero entregado a propietarios (90% de cada pago)
-$stmt = $conn->prepare(
-    "SELECT pagos.monto FROM pagos
-     JOIN contratos c ON pagos.contrato_id = c.id
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?"
-);
-$stmt->bind_param("i", $agente_id);
-$stmt->execute();
-$resPagosProp = $stmt->get_result();
-$dinero_propietarios = 0;
-while ($row = $resPagosProp->fetch_assoc()) {
-    $dinero_propietarios += $row['monto'] * 0.90;
-}
-$stmt->close();
-
-// Pagos por mes (últimos 12 meses)
-$stmt = $conn->prepare(
-    "SELECT DATE_FORMAT(pagos.fecha_pago, '%Y-%m') as mes, SUM(pagos.monto) as total_mes
-     FROM pagos
-     JOIN contratos c ON pagos.contrato_id = c.id
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?
-     GROUP BY mes
-     ORDER BY mes DESC
-     LIMIT 12"
-);
-$stmt->bind_param("i", $agente_id);
-$stmt->execute();
-$resPagosMes = $stmt->get_result();
-$pagos_mes = [];
-$comision_mes = [];
-while ($row = $resPagosMes->fetch_assoc()) {
-    $pagos_mes[] = $row;
-    $comision_mes[$row['mes']] = floatval($row['total_mes']) * 0.10;
-}
-$stmt->close();
+$total_pagado = $total_pagado ?: 0;
 
 // Contratos por estado
 $stmt = $conn->prepare(
-    "SELECT c.estado, COUNT(*) as total FROM contratos c
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?
-     GROUP BY c.estado"
+    "SELECT estado, COUNT(*) as total FROM contratos WHERE arrendatario_id = ? GROUP BY estado"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $resEstados = $stmt->get_result();
 $estados_labels = [];
@@ -116,33 +44,32 @@ while ($row = $resEstados->fetch_assoc()) {
 }
 $stmt->close();
 
-// Gráfica de propiedades por ciudad (top 5)
+// Pagos por mes (últimos 12 meses)
 $stmt = $conn->prepare(
-    "SELECT ciudad, COUNT(*) as total FROM propiedades
-     WHERE agente_id = ?
-     GROUP BY ciudad
-     ORDER BY total DESC
-     LIMIT 5"
+    "SELECT DATE_FORMAT(fecha_pago, '%Y-%m') as mes, SUM(monto) as total_mes
+     FROM pagos
+     WHERE contrato_id IN (SELECT id FROM contratos WHERE arrendatario_id = ?)
+     GROUP BY mes
+     ORDER BY mes DESC
+     LIMIT 12"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
-$resCiudades = $stmt->get_result();
-$ciudades_labels = [];
-$ciudades_data = [];
-while ($row = $resCiudades->fetch_assoc()) {
-    $ciudades_labels[] = $row['ciudad'] ?: 'Sin ciudad';
-    $ciudades_data[] = (int)$row['total'];
+$resPagosMes = $stmt->get_result();
+$pagos_mes = [];
+while ($row = $resPagosMes->fetch_assoc()) {
+    $pagos_mes[] = $row;
 }
 $stmt->close();
 
-// Gráfica de contratos por tipo de inmueble
+// Contratos por tipo de inmueble
 $stmt = $conn->prepare(
     "SELECT p.tipo_inmueble, COUNT(*) as total FROM contratos c
      JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ?
+     WHERE c.arrendatario_id = ?
      GROUP BY p.tipo_inmueble"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $resTipos = $stmt->get_result();
 $tipos_labels = [];
@@ -153,39 +80,43 @@ while ($row = $resTipos->fetch_assoc()) {
 }
 $stmt->close();
 
-// Reporte: contratos cancelados
+// Contratos cancelados
 $stmt = $conn->prepare(
-    "SELECT COUNT(*) FROM contratos c
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ? AND c.estado = 'Cancelado'"
+    "SELECT COUNT(*) FROM contratos WHERE arrendatario_id = ? AND estado = 'Cancelado'"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $stmt->bind_result($contratos_cancelados);
 $stmt->fetch();
 $stmt->close();
 
-// Reporte: contratos vigentes (ahora contratos firmados)
+// Contratos vigentes
 $stmt = $conn->prepare(
-    "SELECT COUNT(*) FROM contratos c
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ? AND c.estado = 'Firmado'"
+    "SELECT COUNT(*) FROM contratos WHERE arrendatario_id = ? AND estado = 'Vigente'"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $stmt->bind_result($contratos_vigentes);
 $stmt->fetch();
 $stmt->close();
 
-// Reporte: contratos con cancelación anticipada
+// Contratos con cancelación anticipada
 $stmt = $conn->prepare(
-    "SELECT COUNT(*) FROM contratos c
-     JOIN propiedades p ON c.propiedad_id = p.id
-     WHERE p.agente_id = ? AND c.estado = 'Cancelación anticipada'"
+    "SELECT COUNT(*) FROM contratos WHERE arrendatario_id = ? AND estado = 'Cancelación anticipada'"
 );
-$stmt->bind_param("i", $agente_id);
+$stmt->bind_param("i", $arrendatario_id);
 $stmt->execute();
 $stmt->bind_result($contratos_anticipados);
+$stmt->fetch();
+$stmt->close();
+
+// Contratos firmados (para "Contratos Vigentes")
+$stmt = $conn->prepare(
+    "SELECT COUNT(*) FROM contratos WHERE arrendatario_id = ? AND estado = 'Firmado'"
+);
+$stmt->bind_param("i", $arrendatario_id);
+$stmt->execute();
+$stmt->bind_result($contratos_firmados);
 $stmt->fetch();
 $stmt->close();
 ?>
@@ -193,7 +124,7 @@ $stmt->close();
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Reportes del Agente</title>
+    <title>Reportes del Arrendatario</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -203,7 +134,7 @@ $stmt->close();
             background: linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%);
             font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
         }
-        .header-agente {
+        .header-arrendatario {
             background: #2563eb;
             color: #fff;
             border-radius: 0 0 24px 24px;
@@ -225,17 +156,17 @@ $stmt->close();
             margin: 0 auto 12px auto;
             box-shadow: 0 2px 8px 0 rgba(37,99,235,0.10);
         }
-        .header-agente h1 {
+        .header-arrendatario h1 {
             font-size: 2.2rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
         }
-        .header-agente .nombre-usuario {
+        .header-arrendatario .nombre-usuario {
             font-size: 1.15rem;
             font-weight: 400;
             margin-bottom: 0.5rem;
         }
-        .nav-agente {
+        .nav-arrendatario {
             background: #fff;
             border-radius: 0 0 18px 18px;
             box-shadow: 0 2px 12px 0 rgba(60,72,88,0.10);
@@ -246,7 +177,7 @@ $stmt->close();
             justify-content: center;
             gap: 24px;
         }
-        .nav-agente a {
+        .nav-arrendatario a {
             color: #2563eb;
             font-weight: 500;
             text-decoration: none;
@@ -257,7 +188,7 @@ $stmt->close();
             align-items: center;
             gap: 8px;
         }
-        .nav-agente a:hover, .nav-agente a.active {
+        .nav-arrendatario a:hover, .nav-arrendatario a.active {
             background: #e6f0fa;
             color: #174ea6;
         }
@@ -295,12 +226,8 @@ $stmt->close();
             font-weight: 700;
             color: #2563eb;
         }
-        /* Estilos personalizados para los valores de dinero */
-        .report-value.dinero-propietarios {
+        .report-value.total-pagado {
             color: #ef4444 !important;
-        }
-        .report-value.comision-total {
-            color: #10b981 !important;
         }
         .row.mb-4 > .col-md-4, .row.mb-4 > .col-md-6 {
             display: flex;
@@ -317,7 +244,7 @@ $stmt->close();
         }
         @media (max-width: 600px) {
             .main-card { padding: 1rem; }
-            .nav-agente { flex-direction: column; gap: 8px; }
+            .nav-arrendatario { flex-direction: column; gap: 8px; }
             .report-card { min-height: 90px; }
             .report-card canvas { max-width: 100%; }
         }
@@ -331,13 +258,6 @@ $stmt->close();
             height: auto !important;
             image-rendering: auto !important;
         }
-        /* Ajuste específico para las gráficas de dona */
-        .report-card canvas[id$="Chart"] {
-            height: unset !important;
-            max-height: 180px !important;
-            min-height: 120px !important;
-            width: 100% !important;
-        }
         .bg-white.rounded-4.shadow-sm.p-3.w-100 {
             min-height: unset !important;
             height: 220px !important;
@@ -345,7 +265,6 @@ $stmt->close();
             align-items: center !important;
             justify-content: center !important;
         }
-        /* Mejora la nitidez de los canvas en pantallas retina */
         @media (min-resolution: 2dppx), (min-device-pixel-ratio: 2) {
             .report-card canvas {
                 image-rendering: -webkit-optimize-contrast !important;
@@ -355,66 +274,35 @@ $stmt->close();
     </style>
 </head>
 <body>
-    <header class="header-agente text-center position-relative">
+    <header class="header-arrendatario text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
-        <h1>Bienvenido Agente</h1>
+        <h1>Bienvenido Arrendatario</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
     </header>
-    <nav class="nav-agente mb-4">
-        <a href="propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
-        <a href="crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>
-        <a href="registrar_pago.php"><i class="bi bi-cash-stack"></i>Registrar Pago</a>
-        <a href="historial_pagos.php"><i class="bi bi-receipt"></i>Historial de Pagos</a>
-        <a href="historial_contratos.php"><i class="bi bi-clock-history"></i>Historial Contratos</a>
-        <a href="reportes_agente.php" class="active"><i class="bi bi-bar-chart"></i>Reportes</a>
+    <nav class="nav-arrendatario mb-4">
+        <a href="mis_propiedades.php"><i class="bi bi-house-door"></i>Propiedades Arrendadas</a>
+        <a href="mis_contratos.php"><i class="bi bi-file-earmark-text"></i>Mis Contratos</a>
+        <a href="mis_pagos.php"><i class="bi bi-clock-history"></i>Historial de Pagos</a>
+        <a href="subir_comprobante.php"><i class="bi bi-upload"></i>Subir Comprobante</a>
+        <a href="reportes_arrendatario.php" class="active"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">
         <div class="main-card">
-            <a href="../vistas/agente.php" class="btn btn-secondary btn-back mb-3"><i class="bi bi-arrow-left"></i> Volver</a>
+            <a href="../vistas/arrendatario.php" class="btn btn-secondary btn-back mb-3"><i class="bi bi-arrow-left"></i> Volver</a>
             <h2 class="mb-4">Reportes</h2>
             <!-- Fila 1: KPIs Generales -->
             <div class="row mb-4">
                 <div class="col-md-4 d-flex">
                     <div class="report-card w-100">
-                        <h4>Total Propiedades Asignadas</h4>
-                        <div class="report-value" id="anim-propiedades">0</div>
-                    </div>
-                </div>
-                <div class="col-md-4 d-flex">
-                    <div class="report-card w-100">
-                        <h4>Total Contratos Gestionados</h4>
+                        <h4>Total Contratos</h4>
                         <div class="report-value" id="anim-contratos">0</div>
                     </div>
                 </div>
                 <div class="col-md-4 d-flex">
                     <div class="report-card w-100">
-                        <h4>Total Pagos Recibidos</h4>
-                        <div class="report-value" id="anim-pagos">$0</div>
-                    </div>
-                </div>
-            </div>
-            <!-- Fila 2: Desglose Financiero -->
-            <div class="row mb-4">
-                <div class="col-md-6 d-flex">
-                    <div class="report-card w-100">
-                        <h4>Dinero entregado a propietarios</h4>
-                        <div class="report-value dinero-propietarios" id="anim-dinero-propietarios">$0</div>
-                    </div>
-                </div>
-                <div class="col-md-6 d-flex">
-                    <div class="report-card w-100">
-                        <h4>Comisión total recibida (10%)</h4>
-                        <div class="report-value comision-total" id="anim-comision">$0</div>
-                    </div>
-                </div>
-            </div>
-            <!-- Fila 2.1: Reportes adicionales de contratos -->
-            <div class="row mb-4">
-                <div class="col-md-4 d-flex">
-                    <div class="report-card w-100">
-                        <h4>Contratos Cancelados</h4>
-                        <div class="report-value" id="anim-cancelados">0</div>
+                        <h4>Total Pagado</h4>
+                        <div class="report-value total-pagado" id="anim-pagado">$0</div>
                     </div>
                 </div>
                 <div class="col-md-4 d-flex">
@@ -423,7 +311,16 @@ $stmt->close();
                         <div class="report-value" id="anim-vigentes">0</div>
                     </div>
                 </div>
-                <div class="col-md-4 d-flex">
+            </div>
+            <!-- Fila 2: Reportes adicionales de contratos -->
+            <div class="row mb-4">
+                <div class="col-md-6 d-flex">
+                    <div class="report-card w-100">
+                        <h4>Contratos Cancelados</h4>
+                        <div class="report-value" id="anim-cancelados">0</div>
+                    </div>
+                </div>
+                <div class="col-md-6 d-flex">
                     <div class="report-card w-100">
                         <h4>Cancelación Anticipada</h4>
                         <div class="report-value" id="anim-anticipados">0</div>
@@ -434,36 +331,22 @@ $stmt->close();
             <div class="row mb-4">
                 <div class="col-md-6 d-flex">
                     <div class="report-card w-100" style="min-height:260px;">
-                        <h4 class="mb-3">Pagos recibidos por mes (últimos 12 meses)</h4>
+                        <h4 class="mb-3">Pagos realizados por mes (últimos 12 meses)</h4>
                         <canvas id="pagosMesChart" height="180" style="max-width:100%; min-height:180px;"></canvas>
                     </div>
                 </div>
                 <div class="col-md-6 d-flex">
                     <div class="report-card w-100" style="min-height:260px;">
-                        <h4 class="mb-3">Comisión recibida por mes (últimos 12 meses)</h4>
-                        <canvas id="comisionMesChart" height="180" style="max-width:100%; min-height:180px;"></canvas>
-                    </div>
-                </div>
-            </div>
-            <!-- Fila 4: Estado de Operaciones y Cartera Actual -->
-            <div class="row mb-4">
-                <div class="col-lg-4 d-flex">
-                    <div class="report-card w-100">
-                        <h4 class="mb-3 text-center">Contratos por estado</h4>
+                        <h4 class="mb-3">Contratos por estado</h4>
                         <div class="bg-white rounded-4 shadow-sm p-3 w-100" style="height:220px;display:flex;align-items:center;justify-content:center;">
                             <canvas id="estadosChart" style="max-width:260px;max-height:180px;"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-4 d-flex">
-                    <div class="report-card w-100">
-                        <h4 class="mb-3 text-center">Propiedades por ciudad (Top 5)</h4>
-                        <div class="bg-white rounded-4 shadow-sm p-3 w-100" style="height:220px;display:flex;align-items:center;justify-content:center;">
-                            <canvas id="ciudadesChart" style="max-width:260px;max-height:180px;"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4 d-flex">
+            </div>
+            <!-- Fila 4: Contratos por tipo de inmueble -->
+            <div class="row mb-4">
+                <div class="col-md-12 d-flex">
                     <div class="report-card w-100">
                         <h4 class="mb-3 text-center">Contratos por tipo de inmueble</h4>
                         <div class="bg-white rounded-4 shadow-sm p-3 w-100" style="height:220px;display:flex;align-items:center;justify-content:center;">
@@ -498,29 +381,20 @@ $stmt->close();
             };
             window.requestAnimationFrame(step);
         }
-        animateNumber('anim-propiedades', <?= (int)$total_propiedades ?>);
         animateNumber('anim-contratos', <?= (int)$total_contratos ?>);
-        animateNumber('anim-pagos', <?= (float)$total_pagos ?>, '$', 1400, 2);
-        animateNumber('anim-dinero-propietarios', <?= (float)$dinero_propietarios ?>, '$', 1400, 2);
-        animateNumber('anim-comision', <?= (float)$comision_total ?>, '$', 1400, 2);
-
-        // Nuevos reportes
+        animateNumber('anim-pagado', <?= (float)$total_pagado ?>, '$', 1400, 2);
+        animateNumber('anim-vigentes', <?= (int)$contratos_firmados ?>);
         animateNumber('anim-cancelados', <?= (int)$contratos_cancelados ?>);
-        animateNumber('anim-vigentes', <?= (int)$contratos_vigentes ?>);
         animateNumber('anim-anticipados', <?= (int)$contratos_anticipados ?>);
 
-        // Gráfica de pagos por mes (estilo igual a reportes_propietario.php)
+        // Gráfica de pagos por mes
         const pagosMes = <?= json_encode(array_reverse($pagos_mes)) ?>;
-        const comisionMes = <?= json_encode($comision_mes) ?>;
         let labelsMes = [];
         let dataPagos = [];
-        let dataComision = [];
         pagosMes.forEach(function(row) {
             labelsMes.push(row.mes);
             let totalMes = parseFloat(row.total_mes);
-            let comision = comisionMes[row.mes] ? parseFloat(comisionMes[row.mes]) : 0;
             dataPagos.push(totalMes);
-            dataComision.push(comision);
         });
 
         // Pagos por mes
@@ -533,7 +407,7 @@ $stmt->close();
                     return d.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
                 }),
                 datasets: [{
-                    label: 'Pagos recibidos',
+                    label: 'Pagos realizados',
                     data: dataPagos,
                     backgroundColor: 'rgba(37,99,235,0.18)',
                     borderColor: '#2563eb',
@@ -541,60 +415,6 @@ $stmt->close();
                     tension: 0.3,
                     fill: true,
                     pointBackgroundColor: '#2563eb',
-                    pointRadius: 6,
-                    pointHoverRadius: 7,
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
-                elements: {
-                    line: { borderJoinStyle: 'round', borderCapStyle: 'round' }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            color: '#444',
-                            font: { size: 14, family: "'Segoe UI', 'Roboto', Arial, sans-serif" }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: '#e0e7ef', borderDash: [4, 4] },
-                        ticks: {
-                            color: '#444',
-                            font: { size: 14, family: "'Segoe UI', 'Roboto', Arial, sans-serif" },
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Comisión por mes (igual estilo)
-        const ctxComision = document.getElementById('comisionMesChart').getContext('2d');
-        new Chart(ctxComision, {
-            type: 'line',
-            data: {
-                labels: labelsMes.map(m => {
-                    let d = new Date(m + '-01');
-                    return d.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
-                }),
-                datasets: [{
-                    label: 'Comisión recibida',
-                    data: dataComision,
-                    backgroundColor: 'rgba(16,185,129,0.18)',
-                    borderColor: '#10b981',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true,
-                    pointBackgroundColor: '#10b981',
                     pointRadius: 6,
                     pointHoverRadius: 7,
                     pointBorderWidth: 2
@@ -656,31 +476,6 @@ $stmt->close();
             }
         });
 
-        // Propiedades por ciudad (doughnut)
-        const ctxCiudades = document.getElementById('ciudadesChart').getContext('2d');
-        new Chart(ctxCiudades, {
-            type: 'doughnut',
-            data: {
-                labels: <?= json_encode($ciudades_labels) ?>,
-                datasets: [{
-                    data: <?= json_encode($ciudades_data) ?>,
-                    backgroundColor: [
-                        '#6366f1', '#2563eb', '#fbbf24', '#10b981', '#ef4444'
-                    ],
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '65%',
-                plugins: {
-                    legend: { display: true, position: 'bottom' },
-                    tooltip: { enabled: true }
-                }
-            }
-        });
-
         // Contratos por tipo de inmueble (doughnut)
         const ctxTipos = document.getElementById('tiposChart').getContext('2d');
         new Chart(ctxTipos, {
@@ -709,7 +504,6 @@ $stmt->close();
         // Ajuste para que las gráficas de líneas sean más compactas y responsivas
         function ajustarAlturaCanvasLineas() {
             document.getElementById('pagosMesChart').height = 220;
-            document.getElementById('comisionMesChart').height = 220;
         }
         window.addEventListener('resize', ajustarAlturaCanvasLineas);
         ajustarAlturaCanvasLineas();
@@ -722,15 +516,11 @@ $stmt->close();
             canvas.style.width = width + "px";
             canvas.style.height = height + "px";
             const ctx = canvas.getContext('2d');
-            ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.scale(dpr, dpr);
         }
-
-        // Ajustar resolución de los canvas antes de crear los charts
         setCanvasDPI(document.getElementById('pagosMesChart'), 700, 220);
-        setCanvasDPI(document.getElementById('comisionMesChart'), 700, 220);
         setCanvasDPI(document.getElementById('estadosChart'), 260, 180);
-        setCanvasDPI(document.getElementById('ciudadesChart'), 260, 180);
         setCanvasDPI(document.getElementById('tiposChart'), 260, 180);
     });
     </script>

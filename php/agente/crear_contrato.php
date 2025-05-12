@@ -259,7 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 <body>
-    <header class="header-agente text-center">
+    <header class="header-agente text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
         <h1>Bienvenido Agente</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>

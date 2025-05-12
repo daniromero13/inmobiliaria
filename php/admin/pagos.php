@@ -8,24 +8,27 @@ $nombreCompleto = isset($_SESSION['nombre_completo']) ? trim($_SESSION['nombre_c
 $inicial = strtoupper(mb_substr($nombreCompleto, 0, 1, 'UTF-8'));
 include '../../config/db.php';
 
-// Obtener todos los contratos con info relevante
-$query = "SELECT c.id, p.titulo AS propiedad, u.nombre_completo AS arrendatario, a.nombre_completo AS agente, c.fecha_inicio, c.fecha_fin, c.monto, c.estado, c.pdf_contrato
-          FROM contratos c
-          JOIN propiedades p ON c.propiedad_id = p.id
+// Obtener todos los pagos con información relevante
+$query = "SELECT p.id, p.contrato_id, p.monto, p.fecha_pago, 
+                 c.fecha_inicio, c.fecha_fin, c.estado AS estado_contrato, 
+                 u.nombre_completo AS arrendatario, 
+                 pr.titulo AS propiedad, pr.ciudad, pr.ubicacion
+          FROM pagos p
+          JOIN contratos c ON p.contrato_id = c.id
           JOIN usuarios u ON c.arrendatario_id = u.id
-          LEFT JOIN usuarios a ON p.agente_id = a.id
-          ORDER BY c.id DESC";
+          JOIN propiedades pr ON c.propiedad_id = pr.id
+          ORDER BY p.fecha_pago DESC";
 $res = $conn->query($query);
-$contratos = [];
+$pagos = [];
 while ($row = $res->fetch_assoc()) {
-    $contratos[] = $row;
+    $pagos[] = $row;
 }
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Contratos - Administrador</title>
+    <title>Pagos - Administrador</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <style>
@@ -116,8 +119,8 @@ while ($row = $res->fetch_assoc()) {
     <nav class="nav-admin mb-4">
         <a href="usuarios.php"><i class="bi bi-people"></i>Usuarios</a>
         <a href="propiedades.php"><i class="bi bi-house-door"></i>Propiedades</a>
-        <a href="contratos.php" class="active"><i class="bi bi-file-earmark-text"></i>Contratos</a>
-        <a href="pagos.php"><i class="bi bi-cash-stack"></i>Pagos</a>
+        <a href="contratos.php"><i class="bi bi-file-earmark-text"></i>Contratos</a>
+        <a href="pagos.php" class="active"><i class="bi bi-cash-stack"></i>Pagos</a>
         <a href="reportes_admin.php"><i class="bi bi-bar-chart"></i>Reportes</a>
         <a href="../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
@@ -127,40 +130,41 @@ while ($row = $res->fetch_assoc()) {
                 <a href="../vistas/admin.php" class="btn btn-secondary btn-back">
                     <i class="bi bi-arrow-left"></i> Volver
                 </a>
-                <h2 class="mb-0 text-center flex-grow-1" style="font-size:1.7rem;">Todos los Contratos</h2>
+                <h2 class="mb-0 text-center flex-grow-1" style="font-size:1.7rem;">Todas las Transacciones de Pago</h2>
                 <span style="width: 90px;"></span>
             </div>
             <div class="mb-3">
-                <input type="text" id="buscadorContratos" class="form-control" placeholder="Buscar por propiedad, arrendatario, agente, estado...">
+                <input type="text" id="buscadorPagos" class="form-control" placeholder="Buscar por propiedad, arrendatario, ciudad, contrato...">
             </div>
             <div class="table-responsive">
                 <table class="table table-bordered align-middle">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>ID Pago</th>
+                            <th>Contrato</th>
                             <th>Propiedad</th>
                             <th>Arrendatario</th>
-                            <th>Agente</th>
-                            <th>Fecha Inicio</th>
-                            <th>Fecha Fin</th>
+                            <th>Ciudad</th>
+                            <th>Dirección</th>
                             <th>Monto</th>
-                            <th>Estado</th>
-                            <th>PDF</th>
+                            <th>Fecha de Pago</th>
+                            <th>Estado Contrato</th>
                         </tr>
                     </thead>
-                    <tbody id="tablaContratos">
-                        <?php foreach ($contratos as $contrato): ?>
+                    <tbody id="tablaPagos">
+                        <?php foreach ($pagos as $pago): ?>
                         <tr>
-                            <td><?= htmlspecialchars($contrato['id']) ?></td>
-                            <td><?= htmlspecialchars($contrato['propiedad']) ?></td>
-                            <td><?= htmlspecialchars($contrato['arrendatario']) ?></td>
-                            <td><?= htmlspecialchars($contrato['agente'] ?? 'No asignado') ?></td>
-                            <td><?= htmlspecialchars($contrato['fecha_inicio']) ?></td>
-                            <td><?= htmlspecialchars($contrato['fecha_fin']) ?></td>
-                            <td>$<?= number_format($contrato['monto'], 2) ?></td>
+                            <td><?= htmlspecialchars($pago['id']) ?></td>
+                            <td>#<?= htmlspecialchars($pago['contrato_id']) ?></td>
+                            <td><?= htmlspecialchars($pago['propiedad']) ?></td>
+                            <td><?= htmlspecialchars($pago['arrendatario']) ?></td>
+                            <td><?= htmlspecialchars($pago['ciudad']) ?></td>
+                            <td><?= htmlspecialchars($pago['ubicacion']) ?></td>
+                            <td>$<?= number_format($pago['monto'], 2) ?></td>
+                            <td><?= htmlspecialchars($pago['fecha_pago']) ?></td>
                             <td>
                                 <?php
-                                    $estado = $contrato['estado'];
+                                    $estado = $pago['estado_contrato'];
                                     if ($estado == 'Vigente') {
                                         echo '<span class="badge bg-success">Vigente</span>';
                                     } elseif ($estado == 'Firmado') {
@@ -174,18 +178,11 @@ while ($row = $res->fetch_assoc()) {
                                     }
                                 ?>
                             </td>
-                            <td>
-                                <?php if (!empty($contrato['pdf_contrato'])): ?>
-                                    <a href="../../<?= htmlspecialchars($contrato['pdf_contrato']) ?>" target="_blank" class="btn btn-info btn-sm">Ver</a>
-                                <?php else: ?>
-                                    <span class="text-muted">No disponible</span>
-                                <?php endif; ?>
-                            </td>
                         </tr>
                         <?php endforeach; ?>
-                        <?php if (empty($contratos)): ?>
+                        <?php if (empty($pagos)): ?>
                         <tr>
-                            <td colspan="9" class="text-center text-muted">No hay contratos registrados.</td>
+                            <td colspan="9" class="text-center text-muted">No hay pagos registrados.</td>
                         </tr>
                         <?php endif; ?>
                     </tbody>
@@ -194,9 +191,9 @@ while ($row = $res->fetch_assoc()) {
         </div>
     </div>
     <script>
-    document.getElementById('buscadorContratos').addEventListener('input', function() {
+    document.getElementById('buscadorPagos').addEventListener('input', function() {
         const texto = this.value.toLowerCase();
-        const filas = document.querySelectorAll('#tablaContratos tr');
+        const filas = document.querySelectorAll('#tablaPagos tr');
         filas.forEach(function(fila) {
             const contenido = fila.textContent.toLowerCase();
             fila.style.display = contenido.includes(texto) ? '' : 'none';

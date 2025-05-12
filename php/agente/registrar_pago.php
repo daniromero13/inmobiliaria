@@ -45,31 +45,61 @@ if (count($contratosArray) > 0) {
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $contrato_id = $_POST['contrato_id'];
-    $monto = $_POST['monto'];
-    $fecha_pago = $_POST['fecha_pago'];
-
-    // Verificar que el contrato_id existe y pertenece al agente
-    $checkContratoQuery = "SELECT c.id FROM contratos c JOIN propiedades p ON c.propiedad_id = p.id WHERE c.id = ? AND p.agente_id = ?";
-    $stmt = $conn->prepare($checkContratoQuery);
-    $stmt->bind_param("ii", $contrato_id, $agente_id);
+// Si viene por GET con comprobante_id, prellenar el formulario
+$comprobanteSeleccionado = null;
+if (isset($_GET['comprobante_id'])) {
+    $comprobante_id = intval($_GET['comprobante_id']);
+    $sql = "SELECT cp.id, cp.contrato_id, cp.estado, p.precio
+            FROM comprobantes_pagos cp
+            JOIN contratos c ON cp.contrato_id = c.id
+            JOIN propiedades p ON c.propiedad_id = p.id
+            WHERE cp.id = ? AND p.agente_id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ii", $comprobante_id, $agente_id);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $res = $stmt->get_result();
+    if ($res && $row = $res->fetch_assoc()) {
+        $comprobanteSeleccionado = $row;
+    }
+}
 
-    if ($result->num_rows === 0) {
-        $mensaje = "<div class='alert alert-danger'>Error: El contrato especificado no existe o no pertenece a usted.</div>";
+// Procesar registro de pago y actualizar comprobante a aceptado si corresponde
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $contrato_id = isset($_POST['contrato_id']) ? $_POST['contrato_id'] : null;
+    $monto = isset($_POST['monto']) ? $_POST['monto'] : null;
+    $fecha_pago = isset($_POST['fecha_pago']) ? $_POST['fecha_pago'] : null;
+    $comprobante_id = isset($_POST['comprobante_id']) ? intval($_POST['comprobante_id']) : null;
+
+    // Verificar que los campos requeridos existen
+    if (!$contrato_id || !$monto || !$fecha_pago) {
+        $mensaje = "<div class='alert alert-danger'>Por favor complete todos los campos requeridos.</div>";
     } else {
-        // Insertar el pago en la tabla pagos
-        $stmt = $conn->prepare("INSERT INTO pagos (contrato_id, monto, fecha_pago) VALUES (?, ?, ?)");
-        $stmt->bind_param("ids", $contrato_id, $monto, $fecha_pago);
+        // Verificar que el contrato_id existe y pertenece al agente
+        $checkContratoQuery = "SELECT c.id FROM contratos c JOIN propiedades p ON c.propiedad_id = p.id WHERE c.id = ? AND p.agente_id = ?";
+        $stmt = $conn->prepare($checkContratoQuery);
+        $stmt->bind_param("ii", $contrato_id, $agente_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-        if ($stmt->execute()) {
-            // Redirigir tras el POST para evitar reenvío accidental (POST/REDIRECT/GET)
-            header("Location: registrar_pago.php?success=1");
-            exit();
+        if ($result->num_rows === 0) {
+            $mensaje = "<div class='alert alert-danger'>Error: El contrato especificado no existe o no pertenece a usted.</div>";
         } else {
-            $mensaje = "<div class='alert alert-danger'>Error al registrar el pago: " . $conn->error . "</div>";
+            // Insertar el pago en la tabla pagos
+            $stmt = $conn->prepare("INSERT INTO pagos (contrato_id, monto, fecha_pago) VALUES (?, ?, ?)");
+            $stmt->bind_param("ids", $contrato_id, $monto, $fecha_pago);
+
+            if ($stmt->execute()) {
+                // Si viene comprobante_id, actualizar comprobante a aceptado
+                if ($comprobante_id) {
+                    $stmtUpd = $conn->prepare("UPDATE comprobantes_pagos SET estado='Aceptado' WHERE id=?");
+                    $stmtUpd->bind_param("i", $comprobante_id);
+                    $stmtUpd->execute();
+                }
+                header("Location: registrar_pago.php?success=1");
+                exit();
+            } else {
+                $mensaje = "<div class='alert alert-danger'>Error al registrar el pago: " . $conn->error . "</div>";
+            }
         }
     }
 }
@@ -164,10 +194,25 @@ if (isset($_GET['success'])) {
             .main-card { padding: 1rem; }
             .nav-agente { flex-direction: column; gap: 8px; }
         }
+        /* Animación de vibración para la campana */
+        @keyframes bell-shake {
+            0% { transform: rotate(0); }
+            15% { transform: rotate(-15deg); }
+            30% { transform: rotate(10deg); }
+            45% { transform: rotate(-10deg); }
+            60% { transform: rotate(6deg); }
+            75% { transform: rotate(-4deg); }
+            85% { transform: rotate(2deg); }
+            100% { transform: rotate(0); }
+        }
+        .bell-animate {
+            animation: bell-shake 1s cubic-bezier(.36,.07,.19,.97) both;
+            animation-iteration-count: 2;
+        }
     </style>
 </head>
 <body>
-    <header class="header-agente text-center">
+    <header class="header-agente text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
         <h1>Bienvenido Agente</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
@@ -196,33 +241,43 @@ if (isset($_GET['success'])) {
                                 <span style="width: 90px;"></span>
                             </div>
                             <div class="alert alert-info">
-                                Este formulario es solo para registrar pagos presenciales realizados directamente con el arrendatario.
+                                Este formulario es solo para registrar pagos presenciales realizados directamente con el arrendatario o aceptar comprobantes enviados.
                             </div>
                             <?php if ($mensaje) echo $mensaje; ?>
                             <form method="POST">
+                                <?php if ($comprobanteSeleccionado): ?>
+                                    <input type="hidden" name="comprobante_id" value="<?= $comprobanteSeleccionado['id'] ?>">
+                                <?php endif; ?>
                                 <div class="row align-items-end">
                                     <div class="col-md-12 mb-3">
                                         <label for="contrato_id" class="form-label">Contrato Vigente</label>
-                                        <select class="form-select" id="contrato_id" name="contrato_id" required onchange="setMontoYFechaPorContrato()">
+                                        <select class="form-select" id="contrato_id" name="contrato_id" required onchange="setMontoYFechaPorContrato()" <?= $comprobanteSeleccionado ? 'readonly disabled' : '' ?>>
                                             <option value="">Seleccione un contrato</option>
                                             <?php foreach ($contratosArray as $contrato): ?>
                                                 <option value="<?= $contrato['id'] ?>"
                                                     data-precio="<?= $contrato['precio'] ?>"
                                                     data-fecha_inicio="<?= $contrato['fecha_inicio'] ?>"
-                                                    data-duracion="<?= $contrato['duracion_meses'] ?>">
+                                                    data-duracion="<?= $contrato['duracion_meses'] ?>"
+                                                    <?= ($comprobanteSeleccionado && $contrato['id'] == $comprobanteSeleccionado['contrato_id']) ? 'selected' : '' ?>
+                                                >
                                                     #<?= $contrato['id'] ?> - <?= htmlspecialchars($contrato['titulo']) ?> (<?= htmlspecialchars($contrato['arrendatario']) ?>)
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <?php if ($comprobanteSeleccionado): ?>
+                                            <input type="hidden" name="contrato_id" value="<?= $comprobanteSeleccionado['contrato_id'] ?>">
+                                        <?php endif; ?>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="monto" class="form-label">Monto</label>
-                                        <input type="number" class="form-control" id="monto" name="monto" required readonly>
+                                        <input type="number" class="form-control" id="monto" name="monto" required readonly
+                                            value="<?= $comprobanteSeleccionado ? htmlspecialchars($comprobanteSeleccionado['precio']) : '' ?>">
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label for="fecha_pago" class="form-label">Fecha de Pago</label>
                                         <select class="form-select" id="fecha_pago" name="fecha_pago" required>
                                             <option value="">Seleccione el mes a pagar</option>
+                                            <!-- Las opciones se llenan por JS, pero si hay comprobante seleccionado, puedes dejarlo vacío para que el agente seleccione manualmente -->
                                         </select>
                                     </div>
                                     <div class="col-12 mb-3 d-grid">
@@ -232,7 +287,54 @@ if (isset($_GET['success'])) {
                             </form>
                         </div>
                     </div>
-                    <!-- No hay columna de historial aquí -->
+                    <!-- Apartado de comprobantes de pagos recibidos -->
+                    <div class="col-lg-5 col-md-10 d-flex align-items-stretch mx-auto">
+                        <div class="main-card shadow mb-4 w-100">
+                            <h4 class="mb-3 text-center"><i class="bi bi-receipt"></i> Comprobantes de pagos recibidos</h4>
+                            <?php
+                            // Obtener comprobantes de pagos recibidos para este agente
+                            $sqlComprobantes = "SELECT cp.id, cp.archivo, cp.fecha_envio, cp.estado, u.nombre_completo AS arrendatario, p.titulo AS propiedad, c.id AS contrato_id
+                                FROM comprobantes_pagos cp
+                                JOIN contratos c ON cp.contrato_id = c.id
+                                JOIN propiedades p ON c.propiedad_id = p.id
+                                JOIN usuarios u ON c.arrendatario_id = u.id
+                                WHERE p.agente_id = ?
+                                ORDER BY cp.fecha_envio DESC";
+                            $stmtComprobantes = $conn->prepare($sqlComprobantes);
+                            $stmtComprobantes->bind_param("i", $agente_id);
+                            $stmtComprobantes->execute();
+                            $resComprobantes = $stmtComprobantes->get_result();
+                            if ($resComprobantes->num_rows > 0): ?>
+                                <div class="list-group" style="max-height:400px;overflow-y:auto;">
+                                    <?php while ($comp = $resComprobantes->fetch_assoc()): ?>
+                                        <div class="list-group-item d-flex justify-content-between align-items-start flex-column flex-md-row mb-2" style="border-radius:10px;">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold"><?= htmlspecialchars($comp['arrendatario']) ?> (<?= htmlspecialchars($comp['propiedad']) ?>)</div>
+                                                <div class="small text-muted mb-1">
+                                                    Contrato #<?= $comp['contrato_id'] ?> | <?= date('d/m/Y H:i', strtotime($comp['fecha_envio'])) ?>
+                                                </div>
+                                                <span class="badge bg-<?= 
+                                                    $comp['estado'] === 'Pendiente' ? 'warning text-dark' :
+                                                    ($comp['estado'] === 'Aceptado' ? 'success' : 'secondary')
+                                                ?>">
+                                                    <?= htmlspecialchars($comp['estado']) ?>
+                                                </span>
+                                            </div>
+                                            <div class="d-flex flex-column align-items-end gap-2 mt-2 mt-md-0 ms-md-3">
+                                                <a href="../../uploads/<?= htmlspecialchars($comp['archivo']) ?>" target="_blank" class="btn btn-sm btn-info">Ver comprobante</a>
+                                                <?php if ($comp['estado'] === 'Pendiente'): ?>
+                                                    <a href="registrar_pago.php?comprobante_id=<?= $comp['id'] ?>" class="btn btn-sm btn-success">Aceptar</a>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert alert-info text-center mb-0">No hay comprobantes de pagos recibidos.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <!-- Fin apartado comprobantes -->
                 </div>
             </div>
         </div>

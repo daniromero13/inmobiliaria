@@ -188,7 +188,7 @@
           <input type="password" class="form-control" id="confirmar_contrasena" name="confirmar_contrasena" required>
         </div>
         <div class="mb-3">
-          <label for="rol" class="form-label">Rol</label>
+          <label for="rol" class="form-label">¿Qué eres?</label>
           <select class="form-select" id="rol" name="rol" required>
             <option value="Propietario">Propietario</option>
             <option value="Arrendatario" selected>Arrendatario</option>

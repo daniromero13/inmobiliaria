@@ -176,7 +176,7 @@ while ($row = $result->fetch_assoc()) {
                 <div class="col-md-4 mb-2">
                     <select id="filtroEstado" class="form-select">
                         <option value="">Todos los estados</option>
-                        <option value="Vigente">Vigente</option>
+                        <option value="Firmado">Firmado</option>
                         <option value="Cancelado">Cancelado</option>
                     </select>
                 </div>

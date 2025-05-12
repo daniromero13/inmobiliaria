@@ -40,6 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="container mt-5" style="max-width: 600px;">
     <h2 class="mb-4">Registrar Nueva Propiedad</h2>
+    <header class="header-agente text-center position-relative">
+        <div class="avatar"><?php echo $inicial; ?></div>
+        <h1>Bienvenido Agente</h1>
+        <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
+        <!-- Campana eliminada -->
+    </header>
     <nav class="nav-agente mb-4">
         <a href="propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>
         <a href="crear_contrato.php"><i class="bi bi-file-earmark-plus"></i>Crear Contrato</a>

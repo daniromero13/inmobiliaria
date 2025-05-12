@@ -206,6 +206,18 @@ while ($row = $resEstados->fetch_assoc()) {
     $estados_data[] = (int)$row['total'];
 }
 $stmt->close();
+
+// Cambiar contratos vigentes a contratos firmados
+$stmt = $conn->prepare(
+    "SELECT COUNT(*) FROM contratos c
+     JOIN propiedades p ON c.propiedad_id = p.id
+     WHERE p.propietario_id = ? AND c.estado = 'Firmado'"
+);
+$stmt->bind_param("i", $propietario_id);
+$stmt->execute();
+$stmt->bind_result($contratos_vigentes);
+$stmt->fetch();
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">

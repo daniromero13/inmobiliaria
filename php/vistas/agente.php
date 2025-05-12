@@ -107,10 +107,11 @@ $inicial = strtoupper(mb_substr($nombreCompleto, 0, 1, 'UTF-8'));
     </style>
 </head>
 <body>
-    <header class="header-agente text-center">
+    <header class="header-agente text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
         <h1>Bienvenido Agente</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
+        <!-- Campana eliminada -->
     </header>
     <nav class="nav-agente mb-4">
         <a href="../agente/propiedades.php"><i class="bi bi-house-door"></i>Mis Propiedades</a>

@@ -452,7 +452,7 @@ $resultado = $stmt->get_result();
     </script>
 </head>
 <body>
-    <header class="header-agente text-center">
+    <header class="header-agente text-center position-relative">
         <div class="avatar"><?php echo $inicial; ?></div>
         <h1>Bienvenido Agente</h1>
         <div class="nombre-usuario">Hola, <?php echo htmlspecialchars($nombreCompleto); ?></div>
@@ -488,21 +488,50 @@ $resultado = $stmt->get_result();
                     $descCorta = mb_strlen($propiedad['descripcion']) > 80
                         ? mb_substr($propiedad['descripcion'], 0, 80) . '...'
                         : $propiedad['descripcion'];
-                    // Asegura que el campo estado exista
                     $estado_prop = isset($propiedad['estado']) ? $propiedad['estado'] : 'Disponible';
-                    // Consulta rápida para saber si tiene contrato vigente
+
+                    // Si hay contrato firmado, mostrar como "Ocupado (Firmado)"
+                    $ocupadoFirmado = false;
+                    $stmtContratoFirmado = $conn->prepare("SELECT id FROM contratos WHERE propiedad_id = ? AND estado = 'Firmado' LIMIT 1");
+                    $stmtContratoFirmado->bind_param("i", $propiedad['id']);
+                    $stmtContratoFirmado->execute();
+                    $resContratoFirmado = $stmtContratoFirmado->get_result();
+                    if ($resContratoFirmado->fetch_assoc()) {
+                        $ocupadoFirmado = true;
+                    }
+
+                    // Consulta rápida para saber si tiene contrato vigente o pagos asociados
                     $contratoVigente = false;
-                    $stmtContrato = $conn->prepare("SELECT COUNT(*) as total FROM contratos WHERE propiedad_id = ? AND estado = 'Vigente'");
+                    $stmtContrato = $conn->prepare("SELECT c.id FROM contratos c WHERE c.propiedad_id = ? AND c.estado = 'Vigente' LIMIT 1");
                     $stmtContrato->bind_param("i", $propiedad['id']);
                     $stmtContrato->execute();
                     $resContrato = $stmtContrato->get_result();
+                    $contratoId = null;
                     if ($rowC = $resContrato->fetch_assoc()) {
-                        if ($rowC['total'] > 0) {
-                            $contratoVigente = true;
+                        $contratoId = $rowC['id'];
+                        $contratoVigente = true;
+                    }
+                    // Si hay contrato vigente, verificar si tiene pagos
+                    $ocupado = false;
+                    if ($contratoId) {
+                        $stmtPagos = $conn->prepare("SELECT COUNT(*) as total FROM pagos WHERE contrato_id = ?");
+                        $stmtPagos->bind_param("i", $contratoId);
+                        $stmtPagos->execute();
+                        $resPagos = $stmtPagos->get_result();
+                        if ($rowP = $resPagos->fetch_assoc()) {
+                            if ($rowP['total'] > 0) {
+                                $ocupado = true;
+                            }
                         }
                     }
-                    // Mostrar "Ocupado" si hay contrato vigente
-                    $estado_mostrar = $contratoVigente ? 'Ocupado' : htmlspecialchars($estado_prop);
+                    // Mostrar "Ocupado" si hay contrato vigente y pagos, si no mostrar el estado original
+                    if ($ocupadoFirmado) {
+                        $estado_mostrar = '<span class="badge bg-success text-light">Ocupado (Firmado)</span>';
+                    } elseif ($ocupado) {
+                        $estado_mostrar = '<span class="badge bg-warning text-dark">Ocupado</span>';
+                    } else {
+                        $estado_mostrar = htmlspecialchars($estado_prop);
+                    }
                 ?>
                 <div class="col-md-4">
                     <div class="property-card card">
