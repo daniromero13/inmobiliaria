@@ -1,2 +1,0 @@
-ALTER TABLE propiedades
-ADD COLUMN ubicacion VARCHAR(255) NOT NULL AFTER precio;

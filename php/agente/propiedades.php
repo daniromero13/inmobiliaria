@@ -479,6 +479,13 @@ $resultado = $stmt->get_result();
             <?php endif; ?>
             <h2 class="mb-4">Mis Propiedades</h2>
             <div class="row">
+                <?php if ($resultado->num_rows === 0): ?>
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            No tienes propiedades registradas.
+                        </div>
+                    </div>
+                <?php else: ?>
                 <?php while ($propiedad = $resultado->fetch_assoc()): ?>
                 <?php
                     $imagenes = array_filter(explode(',', $propiedad['imagen']));
@@ -579,6 +586,7 @@ $resultado = $stmt->get_result();
                     </div>
                 </div>
                 <?php endwhile; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -959,9 +967,9 @@ $resultado = $stmt->get_result();
     // Indicador de progreso para carga de imágenes
     document.getElementById('imagenes').addEventListener('change', function(e) {
         var files = e.target.files;
+        var progressContainer = document.getElementById('progressContainer');
+        var progressBar = document.getElementById('progressBar');
         if (files.length > 0) {
-            var progressContainer = document.getElementById('progressContainer');
-            var progressBar = document.getElementById('progressBar');
             progressContainer.style.display = 'block';
             progressBar.style.width = '0%';
             progressBar.textContent = '0%';
@@ -973,10 +981,56 @@ $resultado = $stmt->get_result();
                 if (percent > 100) percent = 100;
                 progressBar.style.width = percent + '%';
                 progressBar.textContent = percent + '%';
-                if (percent === 100) clearInterval(interval);
+                if (percent === 100) {
+                    clearInterval(interval);
+                    setTimeout(function() {
+                        progressContainer.style.display = 'none';
+                        // Mostrar previsualización de imágenes seleccionadas
+                        mostrarPreviewImagenes(files);
+                    }, 300);
+                }
             }, 80);
+        } else {
+            progressContainer.style.display = 'none';
+            document.getElementById('previewImagenesNuevas')?.remove();
         }
     });
+
+    // Mostrar previsualización de imágenes seleccionadas en el registro
+    function mostrarPreviewImagenes(files) {
+        // Elimina previsualización anterior si existe
+        document.getElementById('previewImagenesNuevas')?.remove();
+        var container = document.createElement('div');
+        container.id = 'previewImagenesNuevas';
+        container.className = 'd-flex flex-wrap gap-2 mt-2';
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let reader = new FileReader();
+            let div = document.createElement('div');
+            div.style.width = '90px';
+            div.style.height = '70px';
+            div.style.overflow = 'hidden';
+            div.style.borderRadius = '6px';
+            div.style.background = '#e5e7eb';
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.justifyContent = 'center';
+            reader.onload = function(e) {
+                let img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '6px';
+                div.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+            container.appendChild(div);
+        }
+        // Insertar después del input de imágenes
+        var input = document.getElementById('imagenes');
+        input.parentNode.appendChild(container);
+    }
     </script>
     <?php if ($mensaje): ?>
     <script>

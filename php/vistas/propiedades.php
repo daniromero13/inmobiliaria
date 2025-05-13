@@ -73,13 +73,25 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
         body {
             font-family: 'Poppins', sans-serif;
+            background-color: #181c1f; /* Fondo oscuro acorde al header/footer */
+            color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .card {
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             border: none;
             transition: transform 0.3s ease;
+            background-color: #23272b; /* Fondo de tarjeta oscuro */
+            color: #f8f9fa;
         }
         .card:hover {
             transform: translateY(-5px);
@@ -125,13 +137,47 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
         .property-img.arriendo-img {
             filter: grayscale(100%);
         }
+        .navbar, .nav-link, .navbar-brand {
+            font-size: 1rem;
+        }
+        .navbar, footer {
+            background-color: #212529 !important;
+        }
+        footer {
+            font-size: 0.95rem;
+            margin-top: auto;
+            background-color: #212529 !important;
+        }
+        .modal-content {
+            background-color: #23272b !important;
+            color: #f8f9fa;
+            border-radius: 12px;
+        }
+        .modal-body {
+            background-color: #2d3238 !important;
+        }
+        .modal-header {
+            background-color: #23272b !important;
+            border-bottom: 1px solid #444950;
+        }
+        .modal-title {
+            color: #f8f9fa;
+        }
+        /* Badge para estado en detalles */
+        #detalle_estado_badge {
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+        .btn-close {
+            filter: invert(1);
+        }
     </style>
 </head>
 <body>
-    <!-- Barra de navegación -->
+    <!-- Barra de navegación igual que index.html -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">Inmobiliaria</a>
+            <a class="navbar-brand" href="#">InmoPRO</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -253,6 +299,10 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
                     $cardClass = $enArrendando ? 'card mb-4 propiedad-arrendando' : 'card mb-4';
                     $imgClass = 'property-img' . ($enArrendando ? ' arrendando-img' : '');
                     $btnDisabled = ''; // Siempre se puede ver detalles
+                    // Mostrar solo un fragmento de la descripción
+                    $descCorta = mb_strlen($propiedad['descripcion']) > 80
+                        ? mb_substr($propiedad['descripcion'], 0, 80) . '...'
+                        : $propiedad['descripcion'];
                 ?>
                 <div class="col-md-4">
                     <div class="<?= $cardClass ?>">
@@ -306,7 +356,7 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
                             </ul>
                             <p class="mb-1"><strong>Agente:</strong> <?= htmlspecialchars($propiedad['agente_nombre'] ?? 'No asignado') ?></p>
                             <p class="mb-2"><strong>Propietario:</strong> <?= htmlspecialchars($propiedad['propietario_nombre'] ?? 'No asignado') ?></p>
-                            <p class="card-text"><?= htmlspecialchars($propiedad['descripcion']) ?></p>
+                            <p class="card-text"><?= htmlspecialchars($descCorta) ?></p>
                             <button class="btn btn-primary btn-ver-detalles" 
                                 data-bs-toggle="modal"
                                 data-bs-target="#modalDetallePropiedad"
@@ -349,6 +399,7 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
                     <img id="detalle_imagen" src="" alt="Imagen propiedad" class="img-fluid rounded" style="max-height:260px;">
                 </div>
                 <div class="col-md-6">
+                    <span id="detalle_estado_badge"></span>
                     <h4 id="detalle_titulo"></h4>
                     <p id="detalle_descripcion"></p>
                     <ul class="property-details-list">
@@ -372,8 +423,8 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
       </div>
     </div>
 
-    <footer class="text-white text-center py-4 mt-5 bg-dark" style="width:100%;">
-        <p>&copy; 2025 Sistema de Gestión de Propiedades Inmobiliarias. Todos los derechos reservados.</p>
+    <footer class="text-white text-center py-4">
+        <p>&copy; 2025 InmoPRO. Todos los derechos reservados.</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
@@ -392,6 +443,24 @@ $banos_opts = $conn->query("SELECT DISTINCT banos FROM propiedades WHERE banos I
         document.getElementById('detalle_tipo').textContent = tipo;
         document.getElementById('detalle_ciudad').textContent = ciudad;
         document.getElementById('detalle_barrio').textContent = barrio;
+
+        // Badge de estado
+        var badge = '';
+        var estadoLower = (estado || '').toLowerCase();
+        if (estadoLower === 'arrendando') {
+            badge = '<span class="badge bg-danger">Arrendando</span>';
+        } else if (estadoLower === 'disponible') {
+            badge = '<span class="badge bg-success">Disponible</span>';
+        } else if (estadoLower === 'remodelación' || estadoLower === 'remodelacion') {
+            badge = '<span class="badge bg-warning text-dark">Remodelación</span>';
+        } else if (estadoLower === 'inactivo') {
+            badge = '<span class="badge bg-secondary">Inactivo</span>';
+        } else {
+            badge = '<span class="badge bg-secondary">' + estado + '</span>';
+        }
+        document.getElementById('detalle_estado_badge').innerHTML = badge;
+
+        // Mostrar el texto del estado también en el campo de detalles
         document.getElementById('detalle_estado').textContent = estado;
     }
     </script>

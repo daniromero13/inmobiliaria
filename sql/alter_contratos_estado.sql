@@ -1,2 +1,0 @@
-ALTER TABLE contratos
-ADD COLUMN estado VARCHAR(30) NOT NULL DEFAULT 'Activo';

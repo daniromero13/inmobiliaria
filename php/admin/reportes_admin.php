@@ -322,7 +322,7 @@ while ($row = $res->fetch_assoc()) {
         <a href="contratos.php"><i class="bi bi-file-earmark-text"></i>Contratos</a>
         <a href="pagos.php"><i class="bi bi-cash-stack"></i>Pagos</a>
         <a href="reportes_admin.php" class="active"><i class="bi bi-bar-chart"></i>Reportes</a>
-        <a href="../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
+        <a href="../../php/logout.php" class="text-danger"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</a>
     </nav>
     <div class="container">
         <div class="main-card">
